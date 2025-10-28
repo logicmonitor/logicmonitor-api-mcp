@@ -1,34 +1,36 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorClient } from '../api/client.js';
 import { listCollectorsSchema } from '../utils/validation.js';
+import { SessionContext } from '../session/sessionManager.js';
 
 export const collectorTools: Tool[] = [
   {
     name: 'lm_list_collectors',
-    description: 'List LogicMonitor collectors with optional filtering. Automatically paginates through all results if total exceeds requested size.',
+    description: 'List collectors with optional filtering and pagination.',
     inputSchema: {
       type: 'object',
       properties: {
         filter: {
           type: 'string',
-          description: 'LogicMonitor query syntax. Examples: "isDown:false", "hostname:*prod*", "platform:linux". Wildcards and special characters will be automatically quoted. Available operators: >: (greater than or equals), <: (less than or equals), > (greater than), < (less than), !: (does not equal), : (equals), ~ (includes), !~ (does not include).'
+          description: 'LogicMonitor filter syntax for collectors.'
         },
         size: {
           type: 'number',
-          description: 'Results per page (max: 1000)',
           minimum: 1,
-          maximum: 1000
+          maximum: 1000,
+          description: 'Results per page (max: 1000).'
         },
         offset: {
           type: 'number',
-          description: 'Pagination offset',
-          minimum: 0
+          minimum: 0,
+          description: 'Pagination offset.'
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of fields to return (e.g., "id,description,platform"). Omit for curated fields or use "*" for all fields. Unless otherwise specified, you should default to using all fields.'
+          description: 'Comma-separated list of fields to return. Use "*" for all fields.'
         }
-      }
+      },
+      additionalProperties: false
     }
   }
 ];
@@ -36,47 +38,31 @@ export const collectorTools: Tool[] = [
 export async function handleCollectorTool(
   toolName: string,
   args: any,
-  client: LogicMonitorClient
+  client: LogicMonitorClient,
+  sessionContext: SessionContext
 ): Promise<any> {
   switch (toolName) {
     case 'lm_list_collectors': {
       const validated = await listCollectorsSchema.validateAsync(args);
       const result = await client.listCollectors(validated);
-      
-      // Check if we have valid data
-      if (!result) {
-        return {
-          total: 0,
-          collectors: [],
-          error: 'No data returned from LogicMonitor API'
-        };
-      }
-      
-      // If fields were specified (and not "*"), return the raw data as LogicMonitor filtered it
-      if (validated.fields && validated.fields !== '*') {
-        return {
-          total: result.total || 0,
-          collectors: result.items || []
-        };
-      }
-      
-      // Otherwise, return our curated default field set
+      const payload = {
+        total: result.total ?? result.items?.length ?? 0,
+        items: result.items ?? [],
+        searchId: result.searchId,
+        request: {
+          filter: validated.filter,
+          fields: validated.fields,
+          offset: validated.offset ?? 0,
+          size: validated.size ?? (result.items?.length ?? 0)
+        }
+      };
+
+      sessionContext.variables.lastCollectorList = payload.items;
+      sessionContext.variables.lastCollectorListMetadata = payload.request;
+
       return {
-        total: result.total || 0,
-        collectors: (result.items || []).map(collector => ({
-          id: collector.id,
-          description: collector.description,
-          hostname: collector.hostname,
-          status: collector.status,
-          platform: collector.platform,
-          uptime: collector.uptime,
-          numberOfInstances: collector.numberOfInstances,
-          numberOfSDTs: collector.numberOfSDTs,
-          isDown: collector.isDown,
-          collectorGroupName: collector.collectorGroupName,
-          numberOfHosts: collector.numberOfHosts,
-          inSDT: collector.inSDT
-        }))
+        ...payload,
+        summary: `Retrieved ${payload.items.length} collector(s).`
       };
     }
 

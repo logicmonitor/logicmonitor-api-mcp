@@ -110,8 +110,10 @@ export interface LMCollector {
 }
 
 export interface LMErrorResponse {
-  status: number;
-  errmsg: string;
+  status?: number;
+  errmsg?: string;
+  errorMessage?: string;
+  errorCode?: string;
 }
 
 export interface LMAlert {

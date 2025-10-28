@@ -35,30 +35,53 @@ export async function listAlerts(
     needMessage: validated.needMessage,
     customColumns: validated.customColumns
   });
-  
-  // If fields were specified (and not "*"), return the raw data as LogicMonitor filtered it
-  if (validated.fields && validated.fields !== '*') {
-    return {
-      total: result.total || 0,
-      alerts: result.items || []
+
+  const items = result.items ?? [];
+  const reportedTotal = typeof result.total === 'number' ? result.total : items.length;
+  const searchId = (result.raw as { searchId?: string } | undefined)?.searchId;
+
+  const payload: {
+    total: number;
+    items: LMAlert[];
+    searchId: string | undefined;
+    request: {
+      filter: unknown;
+      fields: unknown;
+      offset: number;
+      size: number;
+      sort: unknown;
+      needMessage: unknown;
+      customColumns: unknown;
     };
-  }
-  
-  // Otherwise, apply our default field filtering
-  const filteredAlerts = result.items.map((alert: LMAlert) => {
-    const filtered: any = {};
-    DEFAULT_ALERT_FIELDS.forEach(field => {
-      if (field in alert) {
-        filtered[field] = (alert as any)[field];
-      }
-    });
-    return filtered;
-  });
-  
-  return {
-    total: result.total || 0,
-    alerts: filteredAlerts
+    curated?: Record<string, unknown>[];
+  } = {
+    total: reportedTotal,
+    items,
+    searchId,
+    request: {
+      filter: validated.filter,
+      fields: validated.fields,
+      offset: validated.offset ?? 0,
+      size: validated.size ?? items.length,
+      sort: validated.sort,
+      needMessage: validated.needMessage,
+      customColumns: validated.customColumns
+    }
   };
+
+  if (!validated.fields || validated.fields === '*') {
+    payload.curated = items.map((alert: LMAlert) => {
+      const curated: Record<string, unknown> = {};
+      DEFAULT_ALERT_FIELDS.forEach(field => {
+        if (field in alert) {
+          curated[field] = (alert as any)[field];
+        }
+      });
+      return curated;
+    });
+  }
+
+  return payload;
 }
 
 export async function getAlert(
@@ -67,8 +90,8 @@ export async function getAlert(
 ) {
   const { error, value: validated } = getAlertSchema.validate(args);
   if (error) throw new Error(`Validation error: ${error.message}`);
-  const alert = await client.getAlert(validated.alertId);
-  return alert;
+  const alertResult = await client.getAlert(validated.alertId);
+  return alertResult.data;
 }
 
 export async function ackAlert(

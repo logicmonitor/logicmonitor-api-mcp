@@ -8,12 +8,13 @@ import {
   deleteDeviceGroupSchema
 } from '../utils/validation.js';
 import { batchProcessor } from '../utils/batchProcessor.js';
-import { isBatchInput, normalizeToArray, extractBatchOptions } from '../utils/schemaHelpers.js';
+import { extractBatchOptions, isBatchInput, normalizeToArray } from '../utils/schemaHelpers.js';
+import { SessionContext } from '../session/sessionManager.js';
 
 export const deviceGroupTools: Tool[] = [
   {
     name: 'lm_list_device_groups',
-    description: 'List device groups with optional filtering. Automatically paginates through all results if total exceeds requested size.',
+    description: 'List device groups with optional filtering. Automatically paginates through all results if the total exceeds the requested size.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -23,38 +24,40 @@ export const deviceGroupTools: Tool[] = [
         },
         size: {
           type: 'number',
-          description: 'Results per page (max: 1000)',
           minimum: 1,
-          maximum: 1000
+          maximum: 1000,
+          description: 'Results per page (max: 1000).'
         },
         offset: {
           type: 'number',
-          description: 'Pagination offset',
-          minimum: 0
+          minimum: 0,
+          description: 'Pagination offset.'
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of fields to return (e.g., "id,name,fullPath"). Omit for curated fields or use "*" for all fields. Unless otherwise specified, you should default to using all fields.'
+          description: 'Comma-separated list of fields to return. Use "*" for all fields.'
         },
         parentId: {
           type: 'number',
-          description: 'List only children of specific group'
+          description: 'Filter groups by parent ID.'
         }
-      }
+      },
+      additionalProperties: false
     }
   },
   {
     name: 'lm_get_device_group',
-    description: 'Get detailed information about a device group',
+    description: 'Get detailed information about a device group.',
     inputSchema: {
       type: 'object',
       properties: {
         groupId: {
           type: 'number',
-          description: 'The ID of the device group to retrieve'
+          description: 'The ID of the device group to retrieve.'
         }
       },
-      required: ['groupId']
+      required: ['groupId'],
+      additionalProperties: false
     }
   },
   {
@@ -63,23 +66,10 @@ export const deviceGroupTools: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        name: {
-          type: 'string',
-          description: 'Name of the device group'
-        },
-        parentId: {
-          type: 'number',
-          description: 'Parent group ID (1 = root)'
-        },
-        description: {
-          type: 'string',
-          description: 'Description of the group'
-        },
-        appliesTo: {
-          type: 'string',
-          description: 'Dynamic group query (e.g., "system.displayname =~ \\"prod*\\"")'
-        },
+        name: { type: 'string', description: 'Group name (single mode).' },
+        parentId: { type: 'number', description: 'Parent group ID (1 = root).' },
+        description: { type: 'string', description: 'Group description.' },
+        appliesTo: { type: 'string', description: 'Dynamic group query expression.' },
         properties: {
           type: 'array',
           items: {
@@ -88,11 +78,11 @@ export const deviceGroupTools: Tool[] = [
               name: { type: 'string' },
               value: { type: 'string' }
             },
-            required: ['name', 'value']
+            required: ['name', 'value'],
+            additionalProperties: true
           },
-          description: 'Custom properties for the group'
+          description: 'Custom properties to assign.'
         },
-        // Batch mode properties
         groups: {
           type: 'array',
           items: {
@@ -110,30 +100,33 @@ export const deviceGroupTools: Tool[] = [
                     name: { type: 'string' },
                     value: { type: 'string' }
                   },
-                  required: ['name', 'value']
+                  required: ['name', 'value'],
+                  additionalProperties: true
                 }
               }
             },
-            required: ['name', 'parentId']
+            required: ['name', 'parentId'],
+            additionalProperties: true
           },
-          description: 'Array of device groups to create (batch mode)'
+          description: 'Array of device groups to create (batch mode).'
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
             continueOnError: {
               type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
+              description: 'Continue processing on errors (default: true).'
             }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   },
   {
@@ -142,23 +135,10 @@ export const deviceGroupTools: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        groupId: {
-          type: 'number',
-          description: 'The ID of the device group to update'
-        },
-        name: {
-          type: 'string',
-          description: 'New name for the group'
-        },
-        description: {
-          type: 'string',
-          description: 'New description'
-        },
-        appliesTo: {
-          type: 'string',
-          description: 'New dynamic group query'
-        },
+        groupId: { type: 'number', description: 'Group ID to update (single mode).' },
+        name: { type: 'string', description: 'New group name.' },
+        description: { type: 'string', description: 'New description.' },
+        appliesTo: { type: 'string', description: 'Updated dynamic group query.' },
         customProperties: {
           type: 'array',
           items: {
@@ -167,11 +147,11 @@ export const deviceGroupTools: Tool[] = [
               name: { type: 'string' },
               value: { type: 'string' }
             },
-            required: ['name', 'value']
+            required: ['name', 'value'],
+            additionalProperties: true
           },
-          description: 'Custom properties to update'
+          description: 'Custom properties to update.'
         },
-        // Batch mode properties
         groups: {
           type: 'array',
           items: {
@@ -189,30 +169,33 @@ export const deviceGroupTools: Tool[] = [
                     name: { type: 'string' },
                     value: { type: 'string' }
                   },
-                  required: ['name', 'value']
+                  required: ['name', 'value'],
+                  additionalProperties: true
                 }
               }
             },
-            required: ['groupId']
+            required: ['groupId'],
+            additionalProperties: true
           },
-          description: 'Array of device groups to update (batch mode)'
+          description: 'Array of groups to update (batch mode).'
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
             continueOnError: {
               type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
+              description: 'Continue processing on errors (default: true).'
             }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   },
   {
@@ -221,16 +204,11 @@ export const deviceGroupTools: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        groupId: {
-          type: 'number',
-          description: 'The ID of the device group to delete'
-        },
+        groupId: { type: 'number', description: 'Group ID to delete (single mode).' },
         deleteChildren: {
           type: 'boolean',
-          description: 'Whether to delete child groups'
+          description: 'Remove child groups when deleting (default: false).'
         },
-        // Batch mode properties
         groups: {
           type: 'array',
           items: {
@@ -239,26 +217,28 @@ export const deviceGroupTools: Tool[] = [
               groupId: { type: 'number' },
               deleteChildren: { type: 'boolean' }
             },
-            required: ['groupId']
+            required: ['groupId'],
+            additionalProperties: true
           },
-          description: 'Array of device groups to delete (batch mode)'
+          description: 'Array of group deletions (batch mode).'
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
             continueOnError: {
               type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
+              description: 'Continue processing on errors (default: true).'
             }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   }
 ];
@@ -266,95 +246,57 @@ export const deviceGroupTools: Tool[] = [
 export async function handleDeviceGroupTool(
   toolName: string,
   args: any,
-  client: LogicMonitorClient
+  client: LogicMonitorClient,
+  sessionContext: SessionContext
 ): Promise<any> {
   switch (toolName) {
     case 'lm_list_device_groups': {
       const validated = await listDeviceGroupsSchema.validateAsync(args);
       const result = await client.listDeviceGroups(validated);
-      
-      // Check if we have valid data
-      if (!result) {
-        return {
-          total: 0,
-          groups: [],
-          error: 'No data returned from LogicMonitor API'
-        };
-      }
-      
-      // If fields were specified, return the raw data as LogicMonitor filtered it
-      if (validated.fields) {
-        return {
-          total: result.total || 0,
-          groups: result.items || []
-        };
-      }
-      
-      // Otherwise, return our curated default field set
+      const payload = {
+        total: result.total ?? result.items?.length ?? 0,
+        items: result.items ?? [],
+        searchId: result.searchId,
+        request: {
+          filter: validated.filter,
+          fields: validated.fields,
+          parentId: validated.parentId,
+          offset: validated.offset ?? 0,
+          size: validated.size ?? (result.items?.length ?? 0)
+        }
+      };
+
+      sessionContext.variables.lastDeviceGroupList = payload.items;
+      sessionContext.variables.lastDeviceGroupListMetadata = payload.request;
+
       return {
-        total: result.total || 0,
-        groups: (result.items || []).map(group => ({
-          id: group.id,
-          name: group.name,
-          fullPath: group.fullPath,
-          parentId: group.parentId,
-          description: group.description,
-          appliesTo: group.appliesTo,
-          disableAlerting: group.disableAlerting,
-          customProperties: group.customProperties,
-          numOfDevices: group.numOfDevices,
-          numOfDirectDevices: group.numOfDirectDevices,
-          numOfSubGroups: group.numOfSubGroups,
-          alertStatus: group.alertStatus,
-          createdOn: group.createdOn ? new Date(group.createdOn * 1000).toISOString() : undefined,
-          updatedOn: group.updatedOn ? new Date(group.updatedOn * 1000).toISOString() : undefined
-        }))
+        ...payload,
+        summary: `Retrieved ${payload.items.length} device group(s).`
       };
     }
 
     case 'lm_get_device_group': {
       const validated = await getDeviceGroupSchema.validateAsync(args);
-      const group = await client.getDeviceGroup(validated.groupId);
-      return {
-        id: group.id,
-        name: group.name,
-        fullPath: group.fullPath,
-        parentId: group.parentId,
-        description: group.description,
-        appliesTo: group.appliesTo,
-        disableAlerting: group.disableAlerting,
-        customProperties: group.customProperties,
-        numOfDevices: group.numOfDevices,
-        numOfDirectDevices: group.numOfDirectDevices,
-        numOfSubGroups: group.numOfSubGroups,
-        alertStatus: group.alertStatus,
-        createdOn: group.createdOn ? new Date(group.createdOn * 1000).toISOString() : undefined,
-        updatedOn: group.updatedOn ? new Date(group.updatedOn * 1000).toISOString() : undefined
-      };
+      const groupResult = await client.getDeviceGroup(validated.groupId);
+      const group = groupResult.data;
+
+      sessionContext.variables.lastDeviceGroup = group;
+      sessionContext.variables.lastDeviceGroupId = validated.groupId;
+
+      return group;
     }
 
     case 'lm_create_device_group': {
       const validated = await createDeviceGroupSchema.validateAsync(args);
-
       const isBatch = isBatchInput(validated, 'groups');
       const groups = normalizeToArray(validated, 'groups');
       const batchOptions = extractBatchOptions(validated);
-      
+
       const result = await batchProcessor.processBatch(
         groups,
         async (group) => {
-          const created = await client.createDeviceGroup({
-            name: group.name,
-            parentId: group.parentId,
-            description: group.description,
-            appliesTo: group.appliesTo,
-            customProperties: group.properties
-          });
-          return {
-            id: created.id,
-            name: created.name,
-            fullPath: created.fullPath
-          };
+          const created = await client.createDeviceGroup(group);
+          return created;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -363,47 +305,51 @@ export async function handleDeviceGroupTool(
         }
       );
 
-      // Return single result for single input, full batch result for batch input
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to create device group');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for created device group.');
+        }
+        const groupCreated = singleResult.data;
+        sessionContext.variables.lastCreatedDeviceGroup = groupCreated;
         return {
           success: true,
-          group: singleResult.data
+          group: groupCreated,
+          message: `Device group '${groupCreated?.name}' created successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastCreatedDeviceGroups = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!);
+
       return {
         success: result.success,
         summary: result.summary,
-        groups: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? { group: r.data } : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          group: entry.data ?? null,
+          error: entry.error
         }))
       };
     }
 
     case 'lm_update_device_group': {
       const validated = await updateDeviceGroupSchema.validateAsync(args);
-
       const isBatch = isBatchInput(validated, 'groups');
       const groups = normalizeToArray(validated, 'groups');
       const batchOptions = extractBatchOptions(validated);
-      
+
       const result = await batchProcessor.processBatch(
         groups,
         async (group) => {
-          const { groupId, ...updates } = group;
+          const { groupId, ...updates } = group as Record<string, any>;
           const updated = await client.updateDeviceGroup(groupId, updates);
-          return {
-            id: updated.id,
-            name: updated.name,
-            fullPath: updated.fullPath
-          };
+          return updated;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -412,46 +358,50 @@ export async function handleDeviceGroupTool(
         }
       );
 
-      // Return single result for single input, full batch result for batch input
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to update device group');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for updated device group.');
+        }
+        const updatedGroup = singleResult.data;
+        sessionContext.variables.lastUpdatedDeviceGroup = updatedGroup;
         return {
           success: true,
-          group: singleResult.data
+          group: updatedGroup,
+          message: `Device group '${updatedGroup?.name}' updated successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastUpdatedDeviceGroups = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!);
+
       return {
         success: result.success,
         summary: result.summary,
-        groups: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? { group: r.data } : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          group: entry.data ?? null,
+          error: entry.error
         }))
       };
     }
 
     case 'lm_delete_device_group': {
       const validated = await deleteDeviceGroupSchema.validateAsync(args);
-
       const isBatch = isBatchInput(validated, 'groups');
       const groups = normalizeToArray(validated, 'groups');
       const batchOptions = extractBatchOptions(validated);
-      
+
       const result = await batchProcessor.processBatch(
         groups,
         async (group) => {
-          await client.deleteDeviceGroup(group.groupId, {
-            deleteChildren: group.deleteChildren
-          });
-          return {
-            groupId: group.groupId
-          };
+          await client.deleteDeviceGroup(group.groupId, { deleteChildren: group.deleteChildren });
+          return { groupId: group.groupId, deleteChildren: group.deleteChildren ?? false };
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -460,26 +410,35 @@ export async function handleDeviceGroupTool(
         }
       );
 
-      // Return single result for single input, full batch result for batch input
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to delete device group');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for deleted device group.');
+        }
+        const deletedGroup = singleResult.data;
+        sessionContext.variables.lastDeletedDeviceGroupId = deletedGroup.groupId;
         return {
           success: true,
-          ...singleResult.data
+          groupId: deletedGroup.groupId,
+          message: `Device group ${deletedGroup.groupId} deleted successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastDeletedDeviceGroupIds = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!.groupId);
+
       return {
         success: result.success,
         summary: result.summary,
-        groups: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? r.data : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          groupId: entry.data?.groupId ?? null,
+          error: entry.error
         }))
       };
     }

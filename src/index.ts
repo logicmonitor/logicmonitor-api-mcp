@@ -8,6 +8,8 @@ import { createServer } from './server.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { randomUUID } from 'crypto';
+import { APP_INFO } from './appInfo.js';
+import { SessionManager } from './session/sessionManager.js';
 
 // Load environment variables
 dotenv.config();
@@ -37,104 +39,166 @@ const logger = winston.createLogger({
 
 async function startHttpServer() {
   const app = express();
-  
+
   // Security middleware
-  app.use(helmet({
-    crossOriginEmbedderPolicy: false, // Required for SSE
-  }));
+  app.use(helmet());
   
   // Parse JSON bodies
   app.use(express.json());
   
   // Health check endpoint
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'logicmonitor-api-mcp', version: '1.0.0' });
+    res.json({ status: 'ok', service: APP_INFO.name, version: APP_INFO.version });
   });
 
-  // Store for active transports (for stateful mode)
-  const transports = new Map<string, StreamableHTTPServerTransport>();
+  type HttpSessionContext = {
+    transport: StreamableHTTPServerTransport;
+    server: Awaited<ReturnType<typeof createServer>>;
+    credentials: {
+      lm_account: string;
+      lm_bearer_token: string;
+    };
+    sessionId?: string;
+    closed: boolean;
+    sessionManager: SessionManager;
+  };
 
-  // Alternative endpoint for MCP clients that expect simpler initialization
-  app.get('/mcp/sse', async (req, res) => {
-    try {
-      // Extract credentials from headers
-      const lmAccount = req.headers['x-lm-account'] as string;
-      const lmBearerToken = req.headers['x-lm-bearer-token'] as string;
-
-      if (!lmAccount || !lmBearerToken) {
-        res.status(400).json({ error: 'Missing credentials in headers' });
-        return;
-      }
-
-      // Set SSE headers
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      
-      // Send ready message
-      res.write('data: {"type":"ready","server":"logicmonitor-api-mcp"}\n\n');
-      
-      // Keep connection alive
-      const heartbeat = setInterval(() => {
-        res.write('data: {"type":"heartbeat"}\n\n');
-      }, 30000);
-
-      req.on('close', () => {
-        clearInterval(heartbeat);
-      });
-    } catch (error) {
-      logger.error('SSE endpoint error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
+  const sessions = new Map<string, HttpSessionContext>();
 
   // Handle all MCP requests at /mcp endpoint
   app.all('/mcp', async (req, res) => {
     try {
-      const sessionId = req.headers['mcp-session-id'] as string;
-      let transport: StreamableHTTPServerTransport;
+      const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-      // Extract credentials from headers first
-      const lmAccount = req.headers['x-lm-account'] as string;
-      const lmBearerToken = req.headers['x-lm-bearer-token'] as string;
+      const headerAccount = Array.isArray(req.headers['x-lm-account'])
+        ? req.headers['x-lm-account'][0]
+        : (req.headers['x-lm-account'] as string | undefined);
+      const headerToken = Array.isArray(req.headers['x-lm-bearer-token'])
+        ? req.headers['x-lm-bearer-token'][0]
+        : (req.headers['x-lm-bearer-token'] as string | undefined);
 
-      if (sessionId && transports.has(sessionId)) {
-        // Reuse existing transport for this session
-        transport = transports.get(sessionId)!;
-      } else {
-        // Create new transport
-        transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: (newSessionId) => {
-            logger.info(`Session initialized: ${newSessionId}`);
-            transports.set(newSessionId, transport);
-          }
-        });
+      let credentials: { lm_account: string; lm_bearer_token: string } | undefined;
 
-        // Create server with credentials
-        const mcpServer = await createServer({ 
-          logger,
-          credentials: {
-            lm_account: lmAccount,
-            lm_bearer_token: lmBearerToken
-          }
-        });
-        await mcpServer.connect(transport);
-
-        // Clean up on close
-        transport.onclose = () => {
-          const id = Array.from(transports.entries())
-            .find(([_, t]) => t === transport)?.[0];
-          if (id) {
-            logger.info(`Session closed: ${id}`);
-            transports.delete(id);
-          }
+      if (headerAccount || headerToken) {
+        if (!headerAccount || !headerToken) {
+          res.status(401).json({ error: 'Both X-LM-Account and X-LM-Bearer-Token headers are required.' });
+          return;
+        }
+        credentials = {
+          lm_account: headerAccount,
+          lm_bearer_token: headerToken
         };
       }
 
-      // Handle the request
-      await transport.handleRequest(req, res, req.body);
+      let sessionContext: HttpSessionContext | undefined;
+
+      if (sessionId) {
+        sessionContext = sessions.get(sessionId);
+        if (sessionContext?.closed) {
+          sessions.delete(sessionId);
+          sessionContext = undefined;
+        }
+        if (sessionContext) {
+          if (credentials) {
+            const credsMatch =
+              sessionContext.credentials.lm_account === credentials.lm_account &&
+              sessionContext.credentials.lm_bearer_token === credentials.lm_bearer_token;
+
+            if (!credsMatch) {
+              res.status(403).json({ error: 'Credential mismatch for existing MCP session.' });
+              return;
+            }
+          } else {
+            credentials = sessionContext.credentials;
+          }
+        }
+      }
+
+      if (!credentials) {
+        const envAccount = process.env.LM_ACCOUNT;
+        const envToken = process.env.LM_BEARER_TOKEN;
+        if (envAccount && envToken) {
+          credentials = {
+            lm_account: envAccount,
+            lm_bearer_token: envToken
+          };
+        }
+      }
+
+      if (!credentials) {
+        res.status(401).json({ error: 'LogicMonitor credentials are required via headers or environment variables.' });
+        return;
+      }
+
+      if (!sessionContext) {
+        let contextRef: HttpSessionContext;
+        let closeSession: (reason: string) => Promise<void>;
+
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (newSessionId) => {
+            contextRef.sessionId = newSessionId;
+            sessions.set(newSessionId, contextRef);
+            logger.info(`Session initialized: ${newSessionId}`);
+          },
+          onsessionclosed: async (closedSessionId) => {
+            await closeSession(`session closed request (${closedSessionId})`);
+          }
+        });
+
+        const mcpServer = await createServer({
+          logger,
+          credentials
+        });
+
+        const sessionManager =
+          ((mcpServer as unknown) as { sessionManager?: SessionManager }).sessionManager ??
+          new SessionManager();
+
+        contextRef = {
+          transport,
+          server: mcpServer,
+          credentials,
+          closed: false,
+          sessionManager
+        };
+
+        closeSession = async (reason: string) => {
+          if (contextRef.closed) {
+            return;
+          }
+          contextRef.closed = true;
+
+          if (contextRef.sessionId) {
+            sessions.delete(contextRef.sessionId);
+            logger.info(`Session ${contextRef.sessionId} closed (${reason})`);
+          }
+
+          try {
+            await contextRef.server.close();
+            contextRef.sessionManager.deleteContext(contextRef.sessionId);
+          } catch (closeError) {
+            const err = closeError as Error;
+            logger.error('Error closing MCP session', { error: err.message });
+          }
+        };
+
+        transport.onclose = () => {
+          if (!closeSession) {
+            logger.warn('Transport closed before session was fully initialized');
+            return;
+          }
+          closeSession('transport closed').catch((closeError: Error) => {
+            logger.error('Failed to close MCP session', { error: closeError.message });
+          });
+        };
+
+        sessionContext = contextRef;
+
+        await sessionContext.server.connect(transport);
+      }
+
+      await sessionContext.transport.handleRequest(req, res, req.body);
     } catch (error) {
       logger.error('MCP request error:', error);
       if (!res.headersSent) {
@@ -151,10 +215,10 @@ async function startHttpServer() {
 
   // Start server
   app.listen(PORT, () => {
-    logger.info(`LogicMonitor MCP server running on port ${PORT}`);
+    logger.info(`${APP_INFO.name} v${APP_INFO.version} running on port ${PORT}`);
     logger.info('Available endpoints:');
     logger.info(`  Health: http://localhost:${PORT}/health`);
-    logger.info(`  MCP: http://localhost:${PORT}/mcp (supports both HTTP and SSE)`);
+    logger.info(`  MCP: http://localhost:${PORT}/mcp`);
   });
 }
 

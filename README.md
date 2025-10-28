@@ -9,6 +9,7 @@ A Model Context Protocol (MCP) server that provides secure access to the LogicMo
 - **Secure Authentication**: Credentials passed per-request, never stored
 - **Flexible Deployment**: Supports both stdio (local) and HTTP (remote) transports
 - **Natural Language Interface**: Designed for AI assistants like Claude
+- **Session Context**: Built-in session tools keep track of recent results, stored variables, and request history for follow-up actions
 
 ## Installation
 
@@ -129,6 +130,8 @@ Then connect without credentials in headers:
 }
 ```
 
+When no `X-LM-*` headers are provided, the server falls back to `LM_ACCOUNT` and `LM_BEARER_TOKEN` environment variables that were set when the process started.
+
 ## Available Tools
 
 ### Device Management
@@ -169,6 +172,13 @@ Then connect without credentials in headers:
 ### Collector Management
 - `lm_list_collectors` - List collectors
 
+### Session Utilities
+- `lm_get_session_context` - View stored variables, last results, and recent history for the active session
+- `lm_set_session_variable` - Persist custom key/value pairs across tool calls during the session
+- `lm_get_session_variable` - Retrieve values previously stored in the session
+- `lm_clear_session_context` - Reset session state (variables, results, history)
+- `lm_list_session_history` - Inspect recent MCP tool invocations and summaries
+
 ## Usage Examples
 
 Once configured, you can use natural language with your AI assistant:
@@ -204,8 +214,6 @@ All should use collector 1"
   - Database Servers"
 ```
 
-See [examples/prompt-examples.md](examples/prompt-examples.md) for more comprehensive examples.
-
 ## Development
 
 ### Running from Source
@@ -229,7 +237,7 @@ LOG_LEVEL=debug logicmonitor-api-mcp
 
 ## Architecture
 
-- **Transport Layer**: Supports both STDIO and HTTP/SSE
+- **Transport Layer**: Supports both STDIO and streamable HTTP
 - **Session Management**: Stateful connections with cleanup
 - **Rate Limiting**: Automatic retry with exponential backoff
 - **Batch Processing**: Concurrent operations with partial failure handling

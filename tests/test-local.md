@@ -13,8 +13,8 @@ cp .env.example .env
 
 2. Edit `.env` and update these values:
 ```
-TEST_LM_ACCOUNT=your_actual_account
-TEST_LM_BEARER_TOKEN=your_actual_bearer_token
+LM_ACCOUNT=your_actual_account
+LM_BEARER_TOKEN=your_actual_bearer_token
 ```
 
 ## 1. Local Testing with stdio (Quick Test)
@@ -35,7 +35,7 @@ npm run dev -- --stdio
 
 This should return a list of available tools.
 
-## 2. HTTP/SSE Testing
+## 2. HTTP Testing
 
 ### Start the server:
 ```bash
@@ -63,9 +63,9 @@ Create a test configuration file `test-config.json`:
     "logicmonitor": {
       "url": "http://localhost:3001/mcp",
       "transport": "http",
-      "config": {
-        "lm_account": "YOUR_ACCOUNT",
-        "lm_bearer_token": "YOUR_BEARER_TOKEN"
+      "headers": {
+        "X-LM-Account": "YOUR_ACCOUNT",
+        "X-LM-Bearer-Token": "YOUR_BEARER_TOKEN"
       }
     }
   }
@@ -76,6 +76,8 @@ Run MCP Inspector:
 ```bash
 mcp-inspector test-config.json
 ```
+
+If the server was started with `LM_ACCOUNT` and `LM_BEARER_TOKEN` environment variables, you can omit the headers entirely.
 
 ## 3. Direct HTTP Testing
 
@@ -95,6 +97,8 @@ curl -X POST http://localhost:3001/mcp \
 ```bash
 curl -X POST http://localhost:3001/mcp \
   -H "Content-Type: application/json" \
+  -H "X-LM-Account: YOUR_ACCOUNT" \
+  -H "X-LM-Bearer-Token: YOUR_BEARER_TOKEN" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -104,13 +108,7 @@ curl -X POST http://localhost:3001/mcp \
         "size": 10
       }
     },
-    "id": 2,
-    "context": {
-      "config": {
-        "lm_account": "YOUR_ACCOUNT",
-        "lm_bearer_token": "YOUR_BEARER_TOKEN"
-      }
-    }
+    "id": 2
   }'
 ```
 
@@ -127,9 +125,9 @@ Add to your Claude Desktop configuration:
     "logicmonitor": {
       "url": "http://localhost:3001/mcp",
       "transport": "http",
-      "config": {
-        "lm_account": "YOUR_ACCOUNT",
-        "lm_bearer_token": "YOUR_BEARER_TOKEN"
+      "headers": {
+        "X-LM-Account": "YOUR_ACCOUNT",
+        "X-LM-Bearer-Token": "YOUR_BEARER_TOKEN"
       }
     }
   }
@@ -137,6 +135,8 @@ Add to your Claude Desktop configuration:
 ```
 
 Then restart Claude Desktop and you should see the LogicMonitor tools available.
+
+> Tip: if you launch the server with `LM_ACCOUNT` and `LM_BEARER_TOKEN` defined, you can omit the headers block entirely.
 
 ## 5. Test Scenarios
 

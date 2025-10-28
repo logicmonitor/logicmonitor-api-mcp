@@ -8,78 +8,65 @@ import {
   deleteWebsiteGroupSchema
 } from '../utils/validation.js';
 import { batchProcessor } from '../utils/batchProcessor.js';
-import { isBatchInput, normalizeToArray, extractBatchOptions } from '../utils/schemaHelpers.js';
+import { extractBatchOptions, isBatchInput, normalizeToArray } from '../utils/schemaHelpers.js';
+import { SessionContext } from '../session/sessionManager.js';
 
 export const websiteGroupTools: Tool[] = [
   {
     name: 'lm_list_website_groups',
-    description: 'List website groups with optional filtering. Automatically paginates through all results if total exceeds requested size.',
+    description: 'List website groups with optional filtering and pagination.',
     inputSchema: {
       type: 'object',
       properties: {
         filter: {
           type: 'string',
-          description: 'LogicMonitor query syntax. Examples: "name:*prod*", "parentId:1". Wildcards and special characters will be automatically quoted. Available operators: >: (greater than or equals), <: (less than or equals), > (greater than), < (less than), !: (does not equal), : (equals), ~ (includes), !~ (does not include).'
+          description: 'LogicMonitor filter syntax for website groups.'
         },
         size: {
           type: 'number',
-          description: 'Results per page (max: 1000)',
           minimum: 1,
-          maximum: 1000
+          maximum: 1000,
+          description: 'Results per page (max: 1000).'
         },
         offset: {
           type: 'number',
-          description: 'Pagination offset',
-          minimum: 0
+          minimum: 0,
+          description: 'Pagination offset.'
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of fields to return (e.g., "id,name,fullPath"). Omit for curated fields or use "*" for all fields. Unless otherwise specified, you should default to using all fields.'
+          description: 'Comma-separated list of fields to return. Use "*" for all fields.'
         }
-      }
+      },
+      additionalProperties: false
     }
   },
   {
     name: 'lm_get_website_group',
-    description: 'Get detailed information about a website group',
+    description: 'Retrieve detailed information about a website group.',
     inputSchema: {
       type: 'object',
       properties: {
         groupId: {
           type: 'number',
-          description: 'The ID of the website group to retrieve'
+          description: 'Website group ID.'
         }
       },
-      required: ['groupId']
+      required: ['groupId'],
+      additionalProperties: false
     }
   },
   {
     name: 'lm_create_website_group',
-    description: 'Create new website group(s). Supports both single and batch operations.',
+    description: 'Create website group(s). Supports single and batch operations.',
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        name: {
-          type: 'string',
-          description: 'Name of the website group'
-        },
-        parentId: {
-          type: 'number',
-          description: 'Parent group ID (1 = root)'
-        },
-        description: {
-          type: 'string',
-          description: 'Description of the group'
-        },
-        disableAlerting: {
-          type: 'boolean',
-          description: 'Disable alerting for this group'
-        },
-        stopMonitoring: {
-          type: 'boolean',
-          description: 'Stop monitoring websites in this group'
-        },
+        name: { type: 'string', description: 'Group name (single mode).' },
+        parentId: { type: 'number', description: 'Parent group ID.' },
+        description: { type: 'string' },
+        disableAlerting: { type: 'boolean' },
+        stopMonitoring: { type: 'boolean' },
         properties: {
           type: 'array',
           items: {
@@ -88,11 +75,10 @@ export const websiteGroupTools: Tool[] = [
               name: { type: 'string' },
               value: { type: 'string' }
             },
-            required: ['name', 'value']
-          },
-          description: 'Custom properties for the group'
+            required: ['name', 'value'],
+            additionalProperties: true
+          }
         },
-        // Batch mode properties
         groups: {
           type: 'array',
           items: {
@@ -111,59 +97,42 @@ export const websiteGroupTools: Tool[] = [
                     name: { type: 'string' },
                     value: { type: 'string' }
                   },
-                  required: ['name', 'value']
+                  required: ['name', 'value'],
+                  additionalProperties: true
                 }
               }
             },
-            required: ['name', 'parentId']
-          },
-          description: 'Array of website groups to create (batch mode)'
+            required: ['name', 'parentId'],
+            additionalProperties: true
+          }
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
-            continueOnError: {
-              type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
-            }
+            continueOnError: { type: 'boolean' }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   },
   {
     name: 'lm_update_website_group',
-    description: 'Update existing website group(s). Supports both single and batch operations.',
+    description: 'Update website group(s). Supports single and batch operations.',
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        groupId: {
-          type: 'number',
-          description: 'The ID of the website group to update'
-        },
-        name: {
-          type: 'string',
-          description: 'New name for the group'
-        },
-        description: {
-          type: 'string',
-          description: 'New description'
-        },
-        disableAlerting: {
-          type: 'boolean',
-          description: 'Disable alerting'
-        },
-        stopMonitoring: {
-          type: 'boolean',
-          description: 'Stop monitoring'
-        },
+        groupId: { type: 'number', description: 'Website group ID (single mode).' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        disableAlerting: { type: 'boolean' },
+        stopMonitoring: { type: 'boolean' },
         properties: {
           type: 'array',
           items: {
@@ -172,11 +141,10 @@ export const websiteGroupTools: Tool[] = [
               name: { type: 'string' },
               value: { type: 'string' }
             },
-            required: ['name', 'value']
-          },
-          description: 'Custom properties to update'
+            required: ['name', 'value'],
+            additionalProperties: true
+          }
         },
-        // Batch mode properties
         groups: {
           type: 'array',
           items: {
@@ -195,48 +163,39 @@ export const websiteGroupTools: Tool[] = [
                     name: { type: 'string' },
                     value: { type: 'string' }
                   },
-                  required: ['name', 'value']
+                  required: ['name', 'value'],
+                  additionalProperties: true
                 }
               }
             },
-            required: ['groupId']
-          },
-          description: 'Array of website groups to update (batch mode)'
+            required: ['groupId'],
+            additionalProperties: true
+          }
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
-            continueOnError: {
-              type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
-            }
+            continueOnError: { type: 'boolean' }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   },
   {
     name: 'lm_delete_website_group',
-    description: 'Delete website group(s). Supports both single and batch operations.',
+    description: 'Delete website group(s). Supports single and batch operations.',
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        groupId: {
-          type: 'number',
-          description: 'The ID of the website group to delete'
-        },
-        deleteChildren: {
-          type: 'boolean',
-          description: 'Whether to delete child groups'
-        },
-        // Batch mode properties
+        groupId: { type: 'number', description: 'Website group ID (single mode).' },
+        deleteChildren: { type: 'boolean', description: 'Remove child groups as well.' },
         groups: {
           type: 'array',
           items: {
@@ -245,26 +204,24 @@ export const websiteGroupTools: Tool[] = [
               groupId: { type: 'number' },
               deleteChildren: { type: 'boolean' }
             },
-            required: ['groupId']
-          },
-          description: 'Array of website groups to delete (batch mode)'
+            required: ['groupId'],
+            additionalProperties: true
+          }
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
-            continueOnError: {
-              type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
-            }
+            continueOnError: { type: 'boolean' }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   }
 ];
@@ -272,96 +229,54 @@ export const websiteGroupTools: Tool[] = [
 export async function handleWebsiteGroupTool(
   toolName: string,
   args: any,
-  client: LogicMonitorClient
+  client: LogicMonitorClient,
+  sessionContext: SessionContext
 ): Promise<any> {
   switch (toolName) {
     case 'lm_list_website_groups': {
       const validated = await listWebsiteGroupsSchema.validateAsync(args);
       const result = await client.listWebsiteGroups(validated);
-      
-      // Check if we have valid data
-      if (!result) {
-        return {
-          total: 0,
-          groups: [],
-          error: 'No data returned from LogicMonitor API'
-        };
-      }
-      
-      // If fields were specified, return the raw data as LogicMonitor filtered it
-      if (validated.fields) {
-        return {
-          total: result.total || 0,
-          groups: result.items || []
-        };
-      }
-      
-      // Otherwise, return our curated default field set
+      const payload = {
+        total: result.total ?? result.items?.length ?? 0,
+        items: result.items ?? [],
+        searchId: result.searchId,
+        request: {
+          filter: validated.filter,
+          fields: validated.fields,
+          offset: validated.offset ?? 0,
+          size: validated.size ?? (result.items?.length ?? 0)
+        }
+      };
+
+      sessionContext.variables.lastWebsiteGroupList = payload.items;
+      sessionContext.variables.lastWebsiteGroupListMetadata = payload.request;
+
       return {
-        total: result.total || 0,
-        groups: (result.items || []).map(group => ({
-          id: group.id,
-          name: group.name,
-          fullPath: group.fullPath,
-          parentId: group.parentId,
-          description: group.description,
-          disableAlerting: group.disableAlerting,
-          stopMonitoring: group.stopMonitoring,
-          numOfWebsites: group.numOfWebsites,
-          numOfDirectWebsites: group.numOfDirectWebsites,
-          numOfDirectSubGroups: group.numOfDirectSubGroups,
-          hasWebsitesDisabled: group.hasWebsitesDisabled,
-          properties: group.properties
-        }))
+        ...payload,
+        summary: `Retrieved ${payload.items.length} website group(s).`
       };
     }
 
     case 'lm_get_website_group': {
       const validated = await getWebsiteGroupSchema.validateAsync(args);
-      const group = await client.getWebsiteGroup(validated.groupId);
-      return {
-        id: group.id,
-        name: group.name,
-        fullPath: group.fullPath,
-        parentId: group.parentId,
-        description: group.description,
-        disableAlerting: group.disableAlerting,
-        stopMonitoring: group.stopMonitoring,
-        numOfWebsites: group.numOfWebsites,
-        numOfDirectWebsites: group.numOfDirectWebsites,
-        numOfDirectSubGroups: group.numOfDirectSubGroups,
-        hasWebsitesDisabled: group.hasWebsitesDisabled,
-        testLocation: group.testLocation,
-        properties: group.properties
-      };
+      const groupResult = await client.getWebsiteGroup(validated.groupId);
+      const group = groupResult.data;
+      sessionContext.variables.lastWebsiteGroup = group;
+      sessionContext.variables.lastWebsiteGroupId = validated.groupId;
+      return group;
     }
 
     case 'lm_create_website_group': {
       const validated = await createWebsiteGroupSchema.validateAsync(args);
-      
-      // Check if this is a batch request
       const isBatch = isBatchInput(validated, 'groups');
       const groups = normalizeToArray(validated, 'groups');
       const batchOptions = extractBatchOptions(validated);
-      
-      // Process groups (single or batch)
+
       const result = await batchProcessor.processBatch(
         groups,
         async (group) => {
-          const created = await client.createWebsiteGroup({
-            name: group.name,
-            parentId: group.parentId,
-            description: group.description,
-            disableAlerting: group.disableAlerting,
-            stopMonitoring: group.stopMonitoring,
-            properties: group.properties
-          });
-          return {
-            id: created.id,
-            name: created.name,
-            fullPath: created.fullPath,
-            message: `Website group '${created.name}' created successfully`
-          };
+          const created = await client.createWebsiteGroup(group as any);
+          return created;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -369,51 +284,52 @@ export async function handleWebsiteGroupTool(
           retryOnRateLimit: true
         }
       );
-      
-      // Return single result for single input, full batch result for batch input
+
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to create website group');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for created website group.');
+        }
+        const groupCreated = singleResult.data;
+        sessionContext.variables.lastCreatedWebsiteGroup = groupCreated;
         return {
           success: true,
-          group: singleResult.data
+          group: groupCreated,
+          message: `Website group '${groupCreated?.name}' created successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastCreatedWebsiteGroups = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!);
+
       return {
         success: result.success,
         summary: result.summary,
-        groups: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? { group: r.data } : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          group: entry.data ?? null,
+          error: entry.error
         }))
       };
     }
 
     case 'lm_update_website_group': {
       const validated = await updateWebsiteGroupSchema.validateAsync(args);
-      
-      // Check if this is a batch request
       const isBatch = isBatchInput(validated, 'groups');
       const groups = normalizeToArray(validated, 'groups');
       const batchOptions = extractBatchOptions(validated);
-      
-      // Process groups (single or batch)
+
       const result = await batchProcessor.processBatch(
         groups,
         async (group) => {
-          const { groupId, ...updates } = group;
+          const { groupId, ...updates } = group as Record<string, any>;
           const updated = await client.updateWebsiteGroup(groupId, updates);
-          return {
-            id: updated.id,
-            name: updated.name,
-            fullPath: updated.fullPath,
-            message: `Website group '${updated.name}' updated successfully`
-          };
+          return updated;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -421,50 +337,51 @@ export async function handleWebsiteGroupTool(
           retryOnRateLimit: true
         }
       );
-      
-      // Return single result for single input, full batch result for batch input
+
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to update website group');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for updated website group.');
+        }
+        const groupUpdated = singleResult.data;
+        sessionContext.variables.lastUpdatedWebsiteGroup = groupUpdated;
         return {
           success: true,
-          group: singleResult.data
+          group: groupUpdated,
+          message: `Website group '${groupUpdated?.name}' updated successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastUpdatedWebsiteGroups = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!);
+
       return {
         success: result.success,
         summary: result.summary,
-        groups: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? { group: r.data } : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          group: entry.data ?? null,
+          error: entry.error
         }))
       };
     }
 
     case 'lm_delete_website_group': {
       const validated = await deleteWebsiteGroupSchema.validateAsync(args);
-      
-      // Check if this is a batch request
       const isBatch = isBatchInput(validated, 'groups');
       const groups = normalizeToArray(validated, 'groups');
       const batchOptions = extractBatchOptions(validated);
-      
-      // Process groups (single or batch)
+
       const result = await batchProcessor.processBatch(
         groups,
         async (group) => {
-          await client.deleteWebsiteGroup(group.groupId, {
-            deleteChildren: group.deleteChildren
-          });
-          return {
-            groupId: group.groupId,
-            message: `Website group ${group.groupId} deleted successfully`
-          };
+          await client.deleteWebsiteGroup(group.groupId, { deleteChildren: group.deleteChildren });
+          return { groupId: group.groupId, deleteChildren: group.deleteChildren ?? false };
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -472,27 +389,36 @@ export async function handleWebsiteGroupTool(
           retryOnRateLimit: true
         }
       );
-      
-      // Return single result for single input, full batch result for batch input
+
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to delete website group');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for deleted website group.');
+        }
+        const deletedGroup = singleResult.data;
+        sessionContext.variables.lastDeletedWebsiteGroupId = deletedGroup.groupId;
         return {
           success: true,
-          ...singleResult.data
+          groupId: deletedGroup.groupId,
+          message: `Website group ${deletedGroup.groupId} deleted successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastDeletedWebsiteGroupIds = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!.groupId);
+
       return {
         success: result.success,
         summary: result.summary,
-        groups: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? r.data : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          groupId: entry.data?.groupId ?? null,
+          error: entry.error
         }))
       };
     }

@@ -9,8 +9,8 @@ dotenv.config();
 // Configuration from environment
 const CONFIG = {
   serverUrl: `http://localhost:${process.env.PORT || 3001}/mcp`,
-  lmAccount: process.env.TEST_LM_ACCOUNT || 'your_account',
-  lmBearerToken: process.env.TEST_LM_BEARER_TOKEN || 'your_bearer_token'
+  lmAccount: process.env.LM_ACCOUNT || 'your_account',
+  lmBearerToken: process.env.LM_BEARER_TOKEN || 'your_bearer_token'
 };
 
 let sessionId = null;
@@ -134,8 +134,8 @@ async function runTests() {
 if (CONFIG.lmAccount === 'your_account' || CONFIG.lmBearerToken === 'your_bearer_token') {
   console.error('❗ Please configure your LogicMonitor credentials');
   console.error('   Option 1: Set environment variables:');
-  console.error('     export TEST_LM_ACCOUNT=your_actual_account');
-  console.error('     export TEST_LM_BEARER_TOKEN=your_actual_token');
+  console.error('     export LM_ACCOUNT=your_actual_account');
+  console.error('     export LM_BEARER_TOKEN=your_actual_token');
   console.error('   Option 2: Copy .env.example to .env and update the values:');
   console.error('     cp .env.example .env');
   console.error('     # Then edit .env with your credentials');

@@ -8,13 +8,13 @@ dotenv.config();
 
 const serverUrl = `http://localhost:${process.env.PORT || 3001}/mcp`;
 const credentials = {
-  lm_account: process.env.TEST_LM_ACCOUNT || 'your_account',
-  lm_bearer_token: process.env.TEST_LM_BEARER_TOKEN || 'your_bearer_token'
+  lm_account: process.env.LM_ACCOUNT || 'your_account',
+  lm_bearer_token: process.env.LM_BEARER_TOKEN || 'your_bearer_token'
 };
 
 // Check credentials
 if (credentials.lm_account === 'your_account') {
-  console.error('Please set TEST_LM_ACCOUNT and TEST_LM_BEARER_TOKEN in .env file');
+  console.error('Please set LM_ACCOUNT and LM_BEARER_TOKEN in .env file');
   process.exit(1);
 }
 

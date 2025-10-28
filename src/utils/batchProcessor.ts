@@ -9,12 +9,17 @@
  */
 
 import { rateLimiter, RateLimiter } from './rateLimiter.js';
+import { LogicMonitorApiError } from '../api/errors.js';
+import type { LogicMonitorResponseMeta } from '../api/client.js';
 
 export interface BatchItem<T> {
   index: number;
   success: boolean;
   data?: T;
   error?: string;
+  diagnostics?: BatchDiagnostics;
+  meta?: LogicMonitorResponseMeta;
+  raw?: unknown;
 }
 
 export interface BatchResult<T> {
@@ -25,6 +30,14 @@ export interface BatchResult<T> {
     succeeded: number;
     failed: number;
   };
+}
+
+export interface BatchDiagnostics {
+  status?: number;
+  code?: string;
+  requestId?: string;
+  requestUrl?: string;
+  requestMethod?: string;
 }
 
 export interface BatchOptions {
@@ -49,11 +62,18 @@ export class BatchProcessor {
   /**
    * Process an array of items with the given processor function
    */
-  async processBatch<TInput, TOutput>(
+  async processBatch<TInput, TData>(
     items: TInput[],
-    processor: (item: TInput, index: number) => Promise<TOutput>,
+    processor: (item: TInput, index: number) => Promise<
+      TData | {
+        data: TData;
+        diagnostics?: BatchDiagnostics;
+        meta?: LogicMonitorResponseMeta;
+        raw?: unknown;
+      }
+    >,
     options: BatchOptions = {}
-  ): Promise<BatchResult<TOutput>> {
+  ): Promise<BatchResult<TData>> {
     const {
       maxConcurrent = 5,
       retryOnRateLimit = true,
@@ -62,7 +82,7 @@ export class BatchProcessor {
       continueOnError = true
     } = options;
 
-    const results: BatchItem<TOutput>[] = [];
+    const results: BatchItem<TData>[] = [];
     const total = items.length;
     let completed = 0;
 
@@ -73,30 +93,28 @@ export class BatchProcessor {
         const actualIndex = i + chunkIndex;
         
         try {
-          let result: TOutput;
-          
-          if (retryOnRateLimit) {
-            // Use rate limiter for automatic retry
-            result = await this.rateLimiter.executeWithRetry(
-              () => processor(item, actualIndex),
-              'api-request', // You might want to make this configurable
-              retryOptions
-            );
-          } else {
-            result = await processor(item, actualIndex);
-          }
+          const execute = () => processor(item, actualIndex);
+          const rawResult = retryOnRateLimit
+            ? await this.rateLimiter.executeWithRetry(execute, 'api-request', retryOptions)
+            : await execute();
+
+          const { data, diagnostics, meta, raw } = this.normalizeProcessorResult(rawResult);
 
           results[actualIndex] = {
             index: actualIndex,
             success: true,
-            data: result
+            data,
+            diagnostics,
+            meta,
+            raw
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           results[actualIndex] = {
             index: actualIndex,
             success: false,
-            error: errorMessage
+            error: errorMessage,
+            diagnostics: this.extractDiagnosticsFromError(error)
           };
 
           if (!continueOnError) {
@@ -132,22 +150,36 @@ export class BatchProcessor {
   /**
    * Process items one at a time (serial processing)
    */
-  async processSerial<TInput, TOutput>(
+  async processSerial<TInput, TData>(
     items: TInput[],
-    processor: (item: TInput, index: number) => Promise<TOutput>,
+    processor: (item: TInput, index: number) => Promise<
+      TData | {
+        data: TData;
+        diagnostics?: BatchDiagnostics;
+        meta?: LogicMonitorResponseMeta;
+        raw?: unknown;
+      }
+    >,
     options: Omit<BatchOptions, 'maxConcurrent'> = {}
-  ): Promise<BatchResult<TOutput>> {
+  ): Promise<BatchResult<TData>> {
     return this.processBatch(items, processor, { ...options, maxConcurrent: 1 });
   }
 
   /**
    * Process all items in parallel (use with caution for rate-limited APIs)
-   */
-  async processParallel<TInput, TOutput>(
+  */
+  async processParallel<TInput, TData>(
     items: TInput[],
-    processor: (item: TInput, index: number) => Promise<TOutput>,
+    processor: (item: TInput, index: number) => Promise<
+      TData | {
+        data: TData;
+        diagnostics?: BatchDiagnostics;
+        meta?: LogicMonitorResponseMeta;
+        raw?: unknown;
+      }
+    >,
     options: Omit<BatchOptions, 'maxConcurrent'> = {}
-  ): Promise<BatchResult<TOutput>> {
+  ): Promise<BatchResult<TData>> {
     return this.processBatch(items, processor, { ...options, maxConcurrent: items.length });
   }
 
@@ -207,7 +239,40 @@ export class BatchProcessor {
     // Single item
     return [input as T];
   }
-}
 
+  private normalizeProcessorResult<T>(
+    value: T | { data: T; diagnostics?: BatchDiagnostics; meta?: LogicMonitorResponseMeta; raw?: unknown }
+  ): { data: T; diagnostics?: BatchDiagnostics; meta?: LogicMonitorResponseMeta; raw?: unknown } {
+    if (value && typeof value === 'object' && !Array.isArray(value) && 'data' in (value as Record<string, unknown>)) {
+      const structured = value as { data: T; diagnostics?: BatchDiagnostics; meta?: LogicMonitorResponseMeta; raw?: unknown };
+      return {
+        data: structured.data,
+        diagnostics: structured.diagnostics,
+        meta: structured.meta,
+        raw: structured.raw
+      };
+    }
+
+    return {
+      data: value as T,
+      diagnostics: undefined,
+      meta: undefined,
+      raw: undefined
+    };
+  }
+
+  private extractDiagnosticsFromError(error: unknown): BatchDiagnostics | undefined {
+    if (error instanceof LogicMonitorApiError) {
+      return {
+        status: error.status,
+        code: error.code,
+        requestId: error.requestId,
+        requestUrl: error.requestUrl,
+        requestMethod: error.requestMethod
+      };
+    }
+    return undefined;
+  }
+}
 // Singleton instance
 export const batchProcessor = new BatchProcessor();

@@ -44,3 +44,4 @@ coverage/
 .pm2/
 CLAUDE.md
 DESIGN.md
+docs/swagger.json

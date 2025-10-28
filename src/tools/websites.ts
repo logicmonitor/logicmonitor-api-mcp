@@ -8,99 +8,74 @@ import {
   deleteWebsiteSchema
 } from '../utils/validation.js';
 import { batchProcessor } from '../utils/batchProcessor.js';
-import { isBatchInput, normalizeToArray, extractBatchOptions } from '../utils/schemaHelpers.js';
+import { extractBatchOptions, isBatchInput, normalizeToArray } from '../utils/schemaHelpers.js';
+import { SessionContext } from '../session/sessionManager.js';
 
 export const websiteTools: Tool[] = [
   {
     name: 'lm_list_websites',
-    description: 'List websites with optional filtering. Automatically paginates through all results if total exceeds requested size.',
+    description: 'List monitored websites with optional filtering and pagination.',
     inputSchema: {
       type: 'object',
       properties: {
         filter: {
           type: 'string',
-          description: 'LogicMonitor query syntax. Examples: "name:*prod*", "domain:*example.com*". Wildcards and special characters will be automatically quoted. Available operators: >: (greater than or equals), <: (less than or equals), > (greater than), < (less than), !: (does not equal), : (equals), ~ (includes), !~ (does not include).'
+          description: 'LogicMonitor filter syntax for websites.'
         },
         size: {
           type: 'number',
-          description: 'Results per page (max: 1000)',
           minimum: 1,
-          maximum: 1000
+          maximum: 1000,
+          description: 'Results per page (max: 1000).'
         },
         offset: {
           type: 'number',
-          description: 'Pagination offset',
-          minimum: 0
+          minimum: 0,
+          description: 'Pagination offset.'
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of fields to return (e.g., "id,name,domain"). Omit for curated fields or use "*" for all fields. Unless otherwise specified, you should default to using all fields.'
+          description: 'Comma-separated list of fields to return. Use "*" for all fields.'
+        },
+        collectorIds: {
+          type: 'string',
+          description: 'Comma-separated collector IDs to filter websites.'
         }
-      }
+      },
+      additionalProperties: false
     }
   },
   {
     name: 'lm_get_website',
-    description: 'Get detailed information about a website',
+    description: 'Retrieve detailed information about a specific website monitor.',
     inputSchema: {
       type: 'object',
       properties: {
         websiteId: {
           type: 'number',
-          description: 'The ID of the website to retrieve'
+          description: 'Website monitor ID.'
         }
       },
-      required: ['websiteId']
+      required: ['websiteId'],
+      additionalProperties: false
     }
   },
   {
     name: 'lm_create_website',
-    description: 'Create new website(s). Supports both single and batch operations.',
+    description: 'Create website monitor(s). Supports single and batch creation.',
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        name: {
-          type: 'string',
-          description: 'Name of the website'
-        },
-        domain: {
-          type: 'string',
-          description: 'Domain or URL to monitor (e.g., "www.example.com")'
-        },
-        type: {
-          type: 'string',
-          enum: ['webcheck', 'pingcheck'],
-          description: 'Type of check to perform'
-        },
-        groupId: {
-          type: 'number',
-          description: 'Website group ID (1 = root)'
-        },
-        description: {
-          type: 'string',
-          description: 'Description of the website'
-        },
-        disableAlerting: {
-          type: 'boolean',
-          description: 'Disable alerting for this website'
-        },
-        stopMonitoring: {
-          type: 'boolean',
-          description: 'Stop monitoring this website'
-        },
-        useDefaultAlertSetting: {
-          type: 'boolean',
-          description: 'Use default alert settings'
-        },
-        useDefaultLocationSetting: {
-          type: 'boolean',
-          description: 'Use default location settings'
-        },
-        pollingInterval: {
-          type: 'number',
-          description: 'Polling interval in minutes'
-        },
+        name: { type: 'string', description: 'Website name (single mode).' },
+        domain: { type: 'string', description: 'Website domain or URL (single mode).' },
+        type: { type: 'string', enum: ['webcheck', 'pingcheck'], description: 'Website monitor type.' },
+        groupId: { type: 'number', description: 'Website group ID.' },
+        description: { type: 'string' },
+        disableAlerting: { type: 'boolean' },
+        stopMonitoring: { type: 'boolean' },
+        useDefaultAlertSetting: { type: 'boolean' },
+        useDefaultLocationSetting: { type: 'boolean' },
+        pollingInterval: { type: 'number' },
         properties: {
           type: 'array',
           items: {
@@ -109,9 +84,9 @@ export const websiteTools: Tool[] = [
               name: { type: 'string' },
               value: { type: 'string' }
             },
-            required: ['name', 'value']
-          },
-          description: 'Custom properties for the website'
+            required: ['name', 'value'],
+            additionalProperties: true
+          }
         },
         steps: {
           type: 'array',
@@ -123,16 +98,17 @@ export const websiteTools: Tool[] = [
               statusCode: { type: 'string' },
               description: { type: 'string' }
             },
-            required: ['url']
+            required: ['url'],
+            additionalProperties: true
           },
-          description: 'Steps for web checks'
+          description: 'Steps for webcheck monitors.'
         },
-        // Batch mode properties
         websites: {
           type: 'array',
           items: {
             type: 'object',
             properties: {
+              websiteId: { type: 'number' },
               name: { type: 'string' },
               domain: { type: 'string' },
               type: { type: 'string', enum: ['webcheck', 'pingcheck'] },
@@ -151,7 +127,8 @@ export const websiteTools: Tool[] = [
                     name: { type: 'string' },
                     value: { type: 'string' }
                   },
-                  required: ['name', 'value']
+                  required: ['name', 'value'],
+                  additionalProperties: true
                 }
               },
               steps: {
@@ -164,71 +141,49 @@ export const websiteTools: Tool[] = [
                     statusCode: { type: 'string' },
                     description: { type: 'string' }
                   },
-                  required: ['url']
+                  required: ['url'],
+                  additionalProperties: true
                 }
               }
             },
-            required: ['name', 'domain', 'type', 'groupId']
+            required: ['name', 'domain', 'type', 'groupId'],
+            additionalProperties: true
           },
-          description: 'Array of websites to create (batch mode)'
+          description: 'Websites to create (batch mode).'
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
             continueOnError: {
               type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
+              description: 'Continue processing on errors (default: true).'
             }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   },
   {
     name: 'lm_update_website',
-    description: 'Update existing website(s). Supports both single and batch operations.',
+    description: 'Update existing website monitor(s).',
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        websiteId: {
-          type: 'number',
-          description: 'The ID of the website to update'
-        },
-        name: {
-          type: 'string',
-          description: 'New name for the website'
-        },
-        description: {
-          type: 'string',
-          description: 'New description'
-        },
-        disableAlerting: {
-          type: 'boolean',
-          description: 'Disable alerting'
-        },
-        stopMonitoring: {
-          type: 'boolean',
-          description: 'Stop monitoring'
-        },
-        useDefaultAlertSetting: {
-          type: 'boolean',
-          description: 'Use default alert settings'
-        },
-        useDefaultLocationSetting: {
-          type: 'boolean',
-          description: 'Use default location settings'
-        },
-        pollingInterval: {
-          type: 'number',
-          description: 'Polling interval in minutes'
-        },
+        websiteId: { type: 'number', description: 'Website monitor ID (single mode).' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        disableAlerting: { type: 'boolean' },
+        stopMonitoring: { type: 'boolean' },
+        useDefaultAlertSetting: { type: 'boolean' },
+        useDefaultLocationSetting: { type: 'boolean' },
+        pollingInterval: { type: 'number' },
         properties: {
           type: 'array',
           items: {
@@ -237,11 +192,10 @@ export const websiteTools: Tool[] = [
               name: { type: 'string' },
               value: { type: 'string' }
             },
-            required: ['name', 'value']
-          },
-          description: 'Custom properties to update'
+            required: ['name', 'value'],
+            additionalProperties: true
+          }
         },
-        // Batch mode properties
         websites: {
           type: 'array',
           items: {
@@ -263,44 +217,38 @@ export const websiteTools: Tool[] = [
                     name: { type: 'string' },
                     value: { type: 'string' }
                   },
-                  required: ['name', 'value']
+                  required: ['name', 'value'],
+                  additionalProperties: true
                 }
               }
             },
-            required: ['websiteId']
-          },
-          description: 'Array of websites to update (batch mode)'
+            required: ['websiteId'],
+            additionalProperties: true
+          }
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
-            continueOnError: {
-              type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
-            }
+            continueOnError: { type: 'boolean' }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   },
   {
     name: 'lm_delete_website',
-    description: 'Delete website(s). Supports both single and batch operations.',
+    description: 'Delete website monitor(s).',
     inputSchema: {
       type: 'object',
       properties: {
-        // Single mode properties
-        websiteId: {
-          type: 'number',
-          description: 'The ID of the website to delete'
-        },
-        // Batch mode properties
+        websiteId: { type: 'number', description: 'Website monitor ID (single mode).' },
         websites: {
           type: 'array',
           items: {
@@ -308,26 +256,24 @@ export const websiteTools: Tool[] = [
             properties: {
               websiteId: { type: 'number' }
             },
-            required: ['websiteId']
-          },
-          description: 'Array of websites to delete (batch mode)'
+            required: ['websiteId'],
+            additionalProperties: true
+          }
         },
         batchOptions: {
           type: 'object',
           properties: {
             maxConcurrent: {
               type: 'number',
-              description: 'Maximum concurrent operations (default: 5)',
               minimum: 1,
-              maximum: 20
+              maximum: 20,
+              description: 'Maximum concurrent operations (default: 5).'
             },
-            continueOnError: {
-              type: 'boolean',
-              description: 'Continue processing on errors (default: true)'
-            }
+            continueOnError: { type: 'boolean' }
           }
         }
-      }
+      },
+      additionalProperties: true
     }
   }
 ];
@@ -335,112 +281,55 @@ export const websiteTools: Tool[] = [
 export async function handleWebsiteTool(
   toolName: string,
   args: any,
-  client: LogicMonitorClient
+  client: LogicMonitorClient,
+  sessionContext: SessionContext
 ): Promise<any> {
   switch (toolName) {
     case 'lm_list_websites': {
       const validated = await listWebsitesSchema.validateAsync(args);
       const result = await client.listWebsites(validated);
-      
-      // Check if we have valid data
-      if (!result) {
-        return {
-          total: 0,
-          websites: [],
-          error: 'No data returned from LogicMonitor API'
-        };
-      }
-      
-      // If fields were specified, return the raw data as LogicMonitor filtered it
-      if (validated.fields) {
-        return {
-          total: result.total || 0,
-          websites: result.items || []
-        };
-      }
-      
-      // Otherwise, return our curated default field set
+      const payload = {
+        total: result.total ?? result.items?.length ?? 0,
+        items: result.items ?? [],
+        searchId: result.searchId,
+        request: {
+          filter: validated.filter,
+          fields: validated.fields,
+          collectorIds: validated.collectorIds,
+          offset: validated.offset ?? 0,
+          size: validated.size ?? (result.items?.length ?? 0)
+        }
+      };
+
+      sessionContext.variables.lastWebsiteList = payload.items;
+      sessionContext.variables.lastWebsiteListMetadata = payload.request;
+
       return {
-        total: result.total || 0,
-        websites: (result.items || []).map(website => ({
-          id: website.id,
-          name: website.name,
-          domain: website.domain,
-          type: website.type,
-          groupId: website.groupId,
-          status: website.status,
-          description: website.description,
-          disableAlerting: website.disableAlerting,
-          stopMonitoring: website.stopMonitoring,
-          overallAlertLevel: website.overallAlertLevel,
-          pollingInterval: website.pollingInterval,
-          useDefaultAlertSetting: website.useDefaultAlertSetting,
-          useDefaultLocationSetting: website.useDefaultLocationSetting,
-          isInternal: website.isInternal,
-          lastUpdated: website.lastUpdated ? new Date(website.lastUpdated * 1000).toISOString() : undefined
-        }))
+        ...payload,
+        summary: `Retrieved ${payload.items.length} website(s).`
       };
     }
 
     case 'lm_get_website': {
       const validated = await getWebsiteSchema.validateAsync(args);
-      const website = await client.getWebsite(validated.websiteId);
-      return {
-        id: website.id,
-        name: website.name,
-        domain: website.domain,
-        type: website.type,
-        groupId: website.groupId,
-        status: website.status,
-        description: website.description,
-        disableAlerting: website.disableAlerting,
-        stopMonitoring: website.stopMonitoring,
-        overallAlertLevel: website.overallAlertLevel,
-        pollingInterval: website.pollingInterval,
-        useDefaultAlertSetting: website.useDefaultAlertSetting,
-        useDefaultLocationSetting: website.useDefaultLocationSetting,
-        isInternal: website.isInternal,
-        transition: website.transition,
-        testLocation: website.testLocation,
-        checkpoints: website.checkpoints,
-        steps: website.steps,
-        properties: website.properties,
-        lastUpdated: website.lastUpdated ? new Date(website.lastUpdated * 1000).toISOString() : undefined
-      };
+      const websiteResult = await client.getWebsite(validated.websiteId);
+      const website = websiteResult.data;
+      sessionContext.variables.lastWebsite = website;
+      sessionContext.variables.lastWebsiteId = validated.websiteId;
+      return website;
     }
 
     case 'lm_create_website': {
       const validated = await createWebsiteSchema.validateAsync(args);
-      
-      // Check if this is a batch request
       const isBatch = isBatchInput(validated, 'websites');
       const websites = normalizeToArray(validated, 'websites');
       const batchOptions = extractBatchOptions(validated);
-      
-      // Process websites (single or batch)
+
       const result = await batchProcessor.processBatch(
         websites,
         async (website) => {
-          const created = await client.createWebsite({
-            name: website.name,
-            domain: website.domain,
-            type: website.type,
-            groupId: website.groupId,
-            description: website.description,
-            disableAlerting: website.disableAlerting,
-            stopMonitoring: website.stopMonitoring,
-            useDefaultAlertSetting: website.useDefaultAlertSetting,
-            useDefaultLocationSetting: website.useDefaultLocationSetting,
-            pollingInterval: website.pollingInterval,
-            properties: website.properties,
-            steps: website.steps
-          });
-          return {
-            id: created.id,
-            name: created.name,
-            domain: created.domain,
-            message: `Website '${created.name}' created successfully`
-          };
+          const created = await client.createWebsite(website as any);
+          return created;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -448,51 +337,52 @@ export async function handleWebsiteTool(
           retryOnRateLimit: true
         }
       );
-      
-      // Return single result for single input, full batch result for batch input
+
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to create website');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for created website.');
+        }
+        const websiteCreated = singleResult.data;
+        sessionContext.variables.lastCreatedWebsite = websiteCreated;
         return {
           success: true,
-          website: singleResult.data
+          website: websiteCreated,
+          message: `Website '${websiteCreated?.name}' created successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastCreatedWebsites = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!);
+
       return {
         success: result.success,
         summary: result.summary,
-        websites: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? { website: r.data } : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          website: entry.data ?? null,
+          error: entry.error
         }))
       };
     }
 
     case 'lm_update_website': {
       const validated = await updateWebsiteSchema.validateAsync(args);
-      
-      // Check if this is a batch request
       const isBatch = isBatchInput(validated, 'websites');
       const websites = normalizeToArray(validated, 'websites');
       const batchOptions = extractBatchOptions(validated);
-      
-      // Process websites (single or batch)
+
       const result = await batchProcessor.processBatch(
         websites,
         async (website) => {
-          const { websiteId, ...updates } = website;
+          const { websiteId, ...updates } = website as Record<string, any>;
           const updated = await client.updateWebsite(websiteId, updates);
-          return {
-            id: updated.id,
-            name: updated.name,
-            domain: updated.domain,
-            message: `Website '${updated.name}' updated successfully`
-          };
+          return updated;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -500,48 +390,51 @@ export async function handleWebsiteTool(
           retryOnRateLimit: true
         }
       );
-      
-      // Return single result for single input, full batch result for batch input
+
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to update website');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for updated website.');
+        }
+        const websiteUpdated = singleResult.data;
+        sessionContext.variables.lastUpdatedWebsite = websiteUpdated;
         return {
           success: true,
-          website: singleResult.data
+          website: websiteUpdated,
+          message: `Website '${websiteUpdated?.name}' updated successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastUpdatedWebsites = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!);
+
       return {
         success: result.success,
         summary: result.summary,
-        websites: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? { website: r.data } : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          website: entry.data ?? null,
+          error: entry.error
         }))
       };
     }
 
     case 'lm_delete_website': {
       const validated = await deleteWebsiteSchema.validateAsync(args);
-      
-      // Check if this is a batch request
       const isBatch = isBatchInput(validated, 'websites');
       const websites = normalizeToArray(validated, 'websites');
       const batchOptions = extractBatchOptions(validated);
-      
-      // Process websites (single or batch)
+
       const result = await batchProcessor.processBatch(
         websites,
         async (website) => {
           await client.deleteWebsite(website.websiteId);
-          return {
-            websiteId: website.websiteId,
-            message: `Website ${website.websiteId} deleted successfully`
-          };
+          return { websiteId: website.websiteId };
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -549,27 +442,36 @@ export async function handleWebsiteTool(
           retryOnRateLimit: true
         }
       );
-      
-      // Return single result for single input, full batch result for batch input
+
       if (!isBatch) {
         const singleResult = result.results[0];
         if (!singleResult.success) {
           throw new Error(singleResult.error || 'Failed to delete website');
         }
+        if (!singleResult.data) {
+          throw new Error('No response data returned for deleted website.');
+        }
+        const deletedWebsite = singleResult.data;
+        sessionContext.variables.lastDeletedWebsiteId = deletedWebsite.websiteId;
         return {
           success: true,
-          ...singleResult.data
+          websiteId: deletedWebsite.websiteId,
+          message: `Website ${deletedWebsite.websiteId} deleted successfully.`
         };
       }
-      
-      // Return batch result
+
+      sessionContext.variables.lastDeletedWebsiteIds = result.results
+        .filter(entry => entry.success && entry.data)
+        .map(entry => entry.data!.websiteId);
+
       return {
         success: result.success,
         summary: result.summary,
-        websites: result.results.map(r => ({
-          index: r.index,
-          success: r.success,
-          ...(r.success ? r.data : { error: r.error })
+        results: result.results.map(entry => ({
+          index: entry.index,
+          success: entry.success,
+          websiteId: entry.data?.websiteId ?? null,
+          error: entry.error
         }))
       };
     }
