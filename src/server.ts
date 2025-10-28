@@ -164,6 +164,7 @@ export async function createServer(config: ServerConfig = {}) {
   }
 
   mcpServer.server.registerCapabilities({
+    resources: {},
     tools: {}
   });
 
