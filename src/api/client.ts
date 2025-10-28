@@ -15,6 +15,7 @@ import {
 import { formatLogicMonitorFilter } from '../utils/filters.js';
 import { rateLimiter } from '../utils/rateLimiter.js';
 import { LogicMonitorApiError } from './errors.js';
+import { getKnownFields } from '../utils/fieldMetadata.js';
 
 export type LogicMonitorHttpMethod = 'get' | 'post' | 'patch' | 'put' | 'delete';
 
@@ -65,6 +66,13 @@ export interface ApiListResult<T> {
     };
   };
 }
+
+const DEVICE_FILTER_FIELDS = getKnownFields('device');
+const DEVICE_GROUP_FILTER_FIELDS = getKnownFields('deviceGroup');
+const WEBSITE_FILTER_FIELDS = getKnownFields('website');
+const WEBSITE_GROUP_FILTER_FIELDS = getKnownFields('websiteGroup');
+const COLLECTOR_FILTER_FIELDS = getKnownFields('collector');
+const ALERT_FILTER_FIELDS = getKnownFields('alert');
 
 export class LogicMonitorClient {
   private axiosInstance: AxiosInstance;
@@ -354,7 +362,12 @@ export class LogicMonitorClient {
   }): Promise<ApiListResult<LMDevice>> {
     const formattedParams: Record<string, unknown> = {
       ...params,
-      filter: params?.filter ? formatLogicMonitorFilter(params.filter) : undefined
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: DEVICE_FILTER_FIELDS,
+            resourceName: 'device'
+          })
+        : undefined
     };
 
     const sanitizedParams = Object.fromEntries(
@@ -538,7 +551,12 @@ export class LogicMonitorClient {
   }): Promise<ApiListResult<LMDeviceGroup>> {
     const formattedParams: Record<string, unknown> = {
       ...params,
-      filter: params?.filter ? formatLogicMonitorFilter(params.filter) : undefined
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: DEVICE_GROUP_FILTER_FIELDS,
+            resourceName: 'device group'
+          })
+        : undefined
     };
 
     const sanitizedParams = Object.fromEntries(
@@ -697,7 +715,12 @@ export class LogicMonitorClient {
   }): Promise<ApiListResult<LMWebsite>> {
     const formattedParams: Record<string, unknown> = {
       ...params,
-      filter: params?.filter ? formatLogicMonitorFilter(params.filter) : undefined
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: WEBSITE_FILTER_FIELDS,
+            resourceName: 'website'
+          })
+        : undefined
     };
 
     const sanitizedParams = Object.fromEntries(
@@ -844,7 +867,12 @@ export class LogicMonitorClient {
   }): Promise<ApiListResult<LMWebsiteGroup>> {
     const formattedParams: Record<string, unknown> = {
       ...params,
-      filter: params?.filter ? formatLogicMonitorFilter(params.filter) : undefined
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: WEBSITE_GROUP_FILTER_FIELDS,
+            resourceName: 'website group'
+          })
+        : undefined
     };
 
     const sanitizedParams = Object.fromEntries(
@@ -984,7 +1012,12 @@ export class LogicMonitorClient {
   }): Promise<ApiListResult<LMCollector>> {
     const formattedParams: Record<string, unknown> = {
       ...params,
-      filter: params?.filter ? formatLogicMonitorFilter(params.filter) : undefined
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: COLLECTOR_FILTER_FIELDS,
+            resourceName: 'collector'
+          })
+        : undefined
     };
 
     const sanitizedParams = Object.fromEntries(
@@ -1012,7 +1045,12 @@ export class LogicMonitorClient {
   }): Promise<ApiListResult<LMAlert>> {
     const formattedParams: Record<string, unknown> = {
       ...params,
-      filter: params?.filter ? formatLogicMonitorFilter(params.filter) : undefined
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: ALERT_FILTER_FIELDS,
+            resourceName: 'alert'
+          })
+        : undefined
     };
 
     const sanitizedParams = Object.fromEntries(

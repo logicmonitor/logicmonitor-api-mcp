@@ -17,11 +17,13 @@
  * - name:"web*"||name:"app*" (OR)
  */
 
-export function formatLogicMonitorFilter(filter: string): string {
+interface FilterOptions {
+  allowedFields?: Set<string>;
+  resourceName?: string;
+}
+
+export function formatLogicMonitorFilter(filter: string, options: FilterOptions = {}): string {
   if (!filter) return filter;
-  
-  // LogicMonitor uses different operators than we initially thought
-  // Let's handle the common patterns and ensure proper quoting
   
   // Split on logical operators (, for AND, || for OR) while preserving them
   const parts = filter.split(/(\s*(?:,|\|\|)\s*)/);
@@ -33,13 +35,13 @@ export function formatLogicMonitorFilter(filter: string): string {
     }
     
     // Process individual conditions
-    return formatFilterCondition(part.trim());
+    return formatFilterCondition(part.trim(), options);
   });
   
   return formattedParts.join('');
 }
 
-function formatFilterCondition(condition: string): string {
+function formatFilterCondition(condition: string, options: FilterOptions): string {
   // Handle LogicMonitor operators: :, !:, >, <, >:, <:, ~, !~
   // Match pattern: property<operator>value(s)
   const operatorMatch = condition.match(/^([^:!><~]+)([:!><~]+)(.*)$/);
@@ -51,6 +53,11 @@ function formatFilterCondition(condition: string): string {
   const cleanProperty = property.trim();
   const cleanOperator = operator.trim();
   const cleanValue = value.trim();
+
+  if (options.allowedFields && !options.allowedFields.has(cleanProperty)) {
+    const resource = options.resourceName ? `${options.resourceName} ` : '';
+    throw new Error(`Unknown ${resource}filter field: ${cleanProperty}`);
+  }
   
   // Handle multiple values separated by | (OR within same field)
   if (cleanValue.includes('|') && !cleanValue.startsWith('"')) {

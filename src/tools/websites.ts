@@ -23,7 +23,7 @@ export const websiteTools: Tool[] = [
       properties: {
         filter: {
           type: 'string',
-          description: 'LogicMonitor filter syntax for websites.'
+          description: 'LogicMonitor filter syntax for websites. Only field names listed in health://logicmonitor/fields/website are accepted.'
         },
         size: {
           type: 'number',

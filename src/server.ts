@@ -53,10 +53,11 @@ export async function createServer(config: ServerConfig = {}) {
 
   const instructions = config.instructions || [
     APP_DESCRIPTION || 'Use the LogicMonitor tools to manage resources, devices, collectors, and alerts.',
-    'Provide credentials via LM_ACCOUNT / LM_BEARER_TOKEN environment variables (stdio) or X-LM-* headers (HTTP).',
-    'Refer to each tool description for the expected input structure; responses include raw API payloads plus request metadata.',
-    'Use resources/read on health://logicmonitor/fields/<resource> (device, device_group, website, website_group, collector, alert) to see the valid field names accepted by each tool.',
-    'Session-aware helpers (lm_*_session_*) expose stored variables, recent tool results, and history for follow-up requests.'
+    'Authenticate with LM_ACCOUNT / LM_BEARER_TOKEN environment variables (stdio) or X-LM-* headers (HTTP).',
+    'Every tool returns the raw LogicMonitor API payload plus request metadata. Use the metadata to chain follow-up actions safely.',
+    'Before setting `fields` or `filter`, call resources/read on health://logicmonitor/fields/<resource> (device, device_group, website, website_group, collector, alert) to confirm supported field names. Unknown fields are rejected.',
+    'Filters must use only those field names. Example filters are included in each field metadata resource.',
+    'Session helpers (lm_*_session_*) let you store variables, review history, and manage context between tool calls.'
   ].join('\n');
 
   const sessionManager = config.sessionManager ?? new SessionManager();
@@ -88,13 +89,49 @@ export async function createServer(config: ServerConfig = {}) {
     }
   );
 
-  const fieldResourceMap: Array<{ key: ResourceKey; resource: string; uri: string; description: string }> = [
-    { key: 'device', resource: 'device', uri: 'health://logicmonitor/fields/device', description: 'Valid fields for lm_list_devices / lm_get_device.' },
-    { key: 'deviceGroup', resource: 'device_group', uri: 'health://logicmonitor/fields/device_group', description: 'Valid fields for device group tools.' },
-    { key: 'website', resource: 'website', uri: 'health://logicmonitor/fields/website', description: 'Valid fields for website tools.' },
-    { key: 'websiteGroup', resource: 'website_group', uri: 'health://logicmonitor/fields/website_group', description: 'Valid fields for website group tools.' },
-    { key: 'collector', resource: 'collector', uri: 'health://logicmonitor/fields/collector', description: 'Valid fields for lm_list_collectors.' },
-    { key: 'alert', resource: 'alert', uri: 'health://logicmonitor/fields/alert', description: 'Valid fields for alert tools.' }
+  const fieldResourceMap: Array<{ key: ResourceKey; resource: string; uri: string; description: string; filterExamples: string[] }> = [
+    {
+      key: 'device',
+      resource: 'device',
+      uri: 'health://logicmonitor/fields/device',
+      description: 'Valid fields for lm_list_devices / lm_get_device.',
+      filterExamples: ['displayName:"*prod*"', 'hostStatus:"alive"', 'preferredCollectorId:12']
+    },
+    {
+      key: 'deviceGroup',
+      resource: 'device_group',
+      uri: 'health://logicmonitor/fields/device_group',
+      description: 'Valid fields for device group tools.',
+      filterExamples: ['name:"*servers*"', 'parentId:1']
+    },
+    {
+      key: 'website',
+      resource: 'website',
+      uri: 'health://logicmonitor/fields/website',
+      description: 'Valid fields for website tools.',
+      filterExamples: ['name:"*checkout*"', 'groupId:12']
+    },
+    {
+      key: 'websiteGroup',
+      resource: 'website_group',
+      uri: 'health://logicmonitor/fields/website_group',
+      description: 'Valid fields for website group tools.',
+      filterExamples: ['name:"*public*"', 'parentId:5']
+    },
+    {
+      key: 'collector',
+      resource: 'collector',
+      uri: 'health://logicmonitor/fields/collector',
+      description: 'Valid fields for lm_list_collectors.',
+      filterExamples: ['status:"active"', 'collectorGroupId:3']
+    },
+    {
+      key: 'alert',
+      resource: 'alert',
+      uri: 'health://logicmonitor/fields/alert',
+      description: 'Valid fields for alert tools.',
+      filterExamples: ['severity>:2', 'resourceId:123']
+    }
   ];
 
   for (const mapping of fieldResourceMap) {
@@ -112,6 +149,8 @@ export async function createServer(config: ServerConfig = {}) {
                 {
                   resource: mapping.resource,
                   description: mapping.description,
+                  usage: 'Use these field names in both the `fields` parameter and filter expressions. Unknown names will be rejected.',
+                  filterExamples: mapping.filterExamples,
                   fields
                 },
                 null,

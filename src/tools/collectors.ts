@@ -14,7 +14,7 @@ export const collectorTools: Tool[] = [
       properties: {
         filter: {
           type: 'string',
-          description: 'LogicMonitor filter syntax for collectors.'
+          description: 'LogicMonitor filter syntax for collectors. Only field names listed in health://logicmonitor/fields/collector are accepted.'
         },
         size: {
           type: 'number',

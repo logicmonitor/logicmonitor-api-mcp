@@ -24,7 +24,7 @@ export const deviceTools: Tool[] = [
       properties: {
         filter: {
           type: 'string',
-          description: 'LogicMonitor query syntax. Examples: "name:*villa*", "hostStatus:alive", "displayName:prod*". Wildcards and special characters will be automatically quoted. Available operators: >: (greater than or equals), <: (less than or equals), > (greater than), < (less than), !: (does not equal), : (equals), ~ (includes), !~ (does not include).'
+          description: 'LogicMonitor query syntax. Examples: "name:*villa*", "hostStatus:alive", "displayName:prod*". Wildcards and special characters will be automatically quoted. Available operators: >: (greater than or equals), <: (less than or equals), > (greater than), < (less than), !: (does not equal), : (equals), ~ (includes), !~ (does not include). Only field names listed in health://logicmonitor/fields/device are accepted.'
         },
         size: {
           type: 'number',

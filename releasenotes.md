@@ -8,4 +8,3 @@
 - **Session intelligence** – new session helpers let agents store variables, inspect history, and maintain context across steps.
 - **Health telemetry** – per-tool success/failure metrics are exposed via `health://logicmonitor/status` for easier monitoring.
 - **Docs & validation upgrades** – clearer instructions, better runtime validation, and improved error messages reduce guesswork for anyone using the tools.
-
