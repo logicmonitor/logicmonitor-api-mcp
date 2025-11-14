@@ -264,4 +264,8 @@ LOG_LEVEL=debug logicmonitor-api-mcp
 
 ## License
 
-MIT
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0). See the [LICENSE](LICENSE) file for details.
+
+### Third-Party Dependencies
+
+This project uses third-party dependencies that are licensed under permissive open-source licenses (MIT, BSD, ISC). These licenses are compatible with MPL-2.0. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for details.
