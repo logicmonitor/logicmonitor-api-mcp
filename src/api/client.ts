@@ -8,6 +8,10 @@ import {
   LMAlert,
   LMWebsite,
   LMWebsiteGroup,
+  LMUser,
+  LMAPIToken,
+  LMDashboard,
+  LMCollectorGroup,
   LMPaginatedResponse,
   LMAlertPaginatedResponse,
   LMErrorResponse 
@@ -390,12 +394,24 @@ export class LogicMonitorClient {
     netflowFilter?: string;
     needStcGrpAndSortedCP?: boolean;
   }): Promise<ApiResult<LMDevice>> {
+    // Only pass valid API parameters, not MCP-specific ones
+    const { fields, start, end, netflowFilter, needStcGrpAndSortedCP } = params || {};
+    
+    // Note: For GET endpoints, fields=* returns empty object, so we omit it to get all fields
     const queryParams = Object.fromEntries(
       Object.entries({
-        ...params,
-        fields: params?.fields ?? '*'
+        fields: fields && fields !== '*' ? fields : undefined,
+        start,
+        end,
+        netflowFilter,
+        needStcGrpAndSortedCP
       }).filter(([, value]) => value !== undefined && value !== null)
     );
+
+    this.logger.debug('Get device request', {
+      deviceId,
+      queryParams
+    });
 
     const requestContext: LogicMonitorRequestContext = {
       endpoint: `/device/devices/${deviceId}`,
@@ -410,18 +426,68 @@ export class LogicMonitorClient {
       });
       const duration = performance.now() - startedAt;
 
-      this.logger.debug('Get device response', {
+      // LogicMonitor API for GET /device/devices/{id} returns the device object directly
+      // Axios wraps it as response.data, so response.data IS the device object
+      this.logger.info('Get device raw response', {
         deviceId,
-        hasData: !!response.data,
-        hasNestedData: !!(response.data?.data),
-        keys: response.data ? Object.keys(response.data) : []
+        responseDataType: typeof response.data,
+        responseDataKeys: response.data && typeof response.data === 'object' ? Object.keys(response.data) : [],
+        responseDataJson: JSON.stringify(response.data),
+        hasDataProperty: response.data && typeof response.data === 'object' && 'data' in response.data,
+        hasIdProperty: response.data && typeof response.data === 'object' && 'id' in response.data,
+        statusCode: response.status,
+        url: response.config?.url,
+        fullUrl: response.request?.path
       });
       
-      // LogicMonitor API might return the device directly or wrapped in a data property
-      const device = response.data.data || response.data;
+      let device;
       
-      if (!device || typeof device.id === 'undefined') {
-        throw new Error(`Invalid device response structure for device ${deviceId}`);
+      if (response.data && typeof response.data === 'object') {
+        // Check if response has a nested 'data' property (some endpoints wrap it)
+        if ('data' in response.data && response.data.data !== undefined && typeof response.data.data === 'object') {
+          device = response.data.data;
+          this.logger.debug('Using nested data property');
+        } else {
+          // For GET /device/devices/{id}, response.data IS the device itself
+          device = response.data;
+          this.logger.debug('Using response.data directly as device');
+        }
+      } else {
+        this.logger.error('Invalid response structure', {
+          deviceId,
+          responseType: typeof response.data,
+          responseData: JSON.stringify(response.data)
+        });
+        throw new Error(`Invalid device response for device ${deviceId}: response.data is not an object`);
+      }
+      
+      if (!device || typeof device !== 'object') {
+        this.logger.error('Invalid device data', {
+          deviceId,
+          deviceType: typeof device,
+          responseData: JSON.stringify(response.data)
+        });
+        throw new Error(`Invalid device response structure for device ${deviceId}: expected object, got ${typeof device}`);
+      }
+      
+      // Check if we got an empty object (device not found or no data returned)
+      const deviceKeys = Object.keys(device);
+      if (deviceKeys.length === 0) {
+        this.logger.warn('Empty device response', {
+          deviceId,
+          statusCode: response.status,
+          responseData: JSON.stringify(response.data)
+        });
+        throw new Error(`Device ${deviceId} not found or returned empty response`);
+      }
+      
+      // Verify we at least have an id field (basic sanity check)
+      if (typeof device.id === 'undefined') {
+        this.logger.warn('Device response missing id field', {
+          deviceId,
+          keys: deviceKeys,
+          hasId: 'id' in device
+        });
       }
       
       return {
@@ -573,10 +639,12 @@ export class LogicMonitorClient {
   }
 
   async getDeviceGroup(groupId: number, params?: { fields?: string }): Promise<ApiResult<LMDeviceGroup>> {
+    const { fields } = params || {};
+    
+    // Note: For GET endpoints, fields=* returns empty object, so we omit it to get all fields
     const queryParams = Object.fromEntries(
       Object.entries({
-        ...params,
-        fields: params?.fields ?? '*'
+        fields: fields && fields !== '*' ? fields : undefined
       }).filter(([, value]) => value !== undefined && value !== null)
     );
 
@@ -592,15 +660,8 @@ export class LogicMonitorClient {
         params: queryParams
       });
       const duration = performance.now() - startedAt;
-      this.logger.debug('Get device group response', { 
-        groupId,
-        hasData: !!response.data,
-        hasNestedData: !!(response.data?.data),
-        keys: response.data ? Object.keys(response.data) : []
-      });
-      
-      // LogicMonitor API might return the group directly or wrapped in a data property
-      const group = response.data.data || response.data;
+      // LogicMonitor API with X-Version: 3 returns the group object directly
+      const group = response.data;
       
       if (!group || typeof group.id === 'undefined') {
         throw new Error(`Invalid device group response structure for group ${groupId}`);
@@ -731,10 +792,12 @@ export class LogicMonitorClient {
   }
 
   async getWebsite(websiteId: number, params?: { fields?: string }): Promise<ApiResult<LMWebsite>> {
+    const { fields } = params || {};
+    
+    // Note: For GET endpoints, fields=* returns empty object, so we omit it to get all fields
     const queryParams = Object.fromEntries(
       Object.entries({
-        ...params,
-        fields: params?.fields
+        fields: fields && fields !== '*' ? fields : undefined
       }).filter(([, value]) => value !== undefined && value !== null)
     );
 
@@ -750,8 +813,8 @@ export class LogicMonitorClient {
     });
     const duration = performance.now() - startedAt;
     
-    const raw = response.data;
-    const website = raw?.data ?? raw;
+    // LogicMonitor API with X-Version: 3 returns the website object directly
+    const website = response.data;
     
     if (!website || typeof website.id === 'undefined') {
       throw new Error(`Invalid website response structure for website ${websiteId}`);
@@ -759,7 +822,7 @@ export class LogicMonitorClient {
     
     return {
       data: website,
-      raw,
+      raw: response.data,
       meta: this.createResponseMeta(response, requestContext, duration)
     };
   }
@@ -883,10 +946,12 @@ export class LogicMonitorClient {
   }
 
   async getWebsiteGroup(groupId: number, params?: { fields?: string }): Promise<ApiResult<LMWebsiteGroup>> {
+    const { fields } = params || {};
+    
+    // Note: For GET endpoints, fields=* returns empty object, so we omit it to get all fields
     const queryParams = Object.fromEntries(
       Object.entries({
-        ...params,
-        fields: params?.fields
+        fields: fields && fields !== '*' ? fields : undefined
       }).filter(([, value]) => value !== undefined && value !== null)
     );
 
@@ -902,8 +967,8 @@ export class LogicMonitorClient {
     });
     const duration = performance.now() - startedAt;
     
-    const raw = response.data;
-    const websiteGroup = raw?.data ?? raw;
+    // LogicMonitor API with X-Version: 3 returns the website group object directly
+    const websiteGroup = response.data;
     
     if (!websiteGroup || typeof websiteGroup.id === 'undefined') {
       throw new Error(`Invalid website group response structure for group ${groupId}`);
@@ -911,7 +976,7 @@ export class LogicMonitorClient {
     
     return {
       data: websiteGroup,
-      raw,
+      raw: response.data,
       meta: this.createResponseMeta(response, requestContext, duration)
     };
   }
@@ -1174,15 +1239,9 @@ export class LogicMonitorClient {
     try {
       const response = await this.axiosInstance.get(`/alert/alerts/${alertId}`);
       const duration = performance.now() - startedAt;
-      this.logger.debug('Get alert response', { 
-        alertId,
-        hasData: !!response.data,
-        hasNestedData: !!(response.data?.data),
-        keys: response.data ? Object.keys(response.data) : []
-      });
       
-      const raw = response.data;
-      const alert = raw?.data ?? raw;
+      // LogicMonitor API with X-Version: 3 returns the alert object directly
+      const alert = response.data;
       
       if (!alert || typeof alert.id === 'undefined') {
         throw new Error(`Invalid alert response structure for alert ${alertId}`);
@@ -1190,7 +1249,7 @@ export class LogicMonitorClient {
       
       return {
         data: alert,
-        raw,
+        raw: response.data,
         meta: this.createResponseMeta(response, requestContext, duration)
       };
     } catch (error) {
@@ -1250,6 +1309,459 @@ export class LogicMonitorClient {
     return {
       data: { alertId },
       raw: response.data ?? null,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  // User Management Methods
+  async listUsers(params?: {
+    filter?: string;
+    size?: number;
+    offset?: number;
+    fields?: string;
+  }): Promise<ApiListResult<LMUser>> {
+    const sanitizedParams: Record<string, unknown> = {
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: new Set(['username', 'email', 'firstName', 'lastName', 'status', 'roles']),
+            resourceName: 'user'
+          })
+        : undefined,
+      size: params?.size ?? 50,
+      offset: params?.offset ?? 0,
+      fields: params?.fields
+    };
+    
+    return this.paginateAll<LMUser>('/setting/admins', sanitizedParams);
+  }
+
+  async getUser(userId: number, params?: { fields?: string }): Promise<ApiResult<LMUser>> {
+    const { fields } = params || {};
+    
+    const queryParams = Object.fromEntries(
+      Object.entries({
+        fields: fields && fields !== '*' ? fields : undefined
+      }).filter(([, value]) => value !== undefined && value !== null)
+    );
+
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/admins/${userId}`,
+      method: 'get',
+      params: queryParams
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.get(`/setting/admins/${userId}`, {
+      params: queryParams
+    });
+    const duration = performance.now() - startedAt;
+    
+    const user = response.data;
+    
+    if (!user || typeof user.id === 'undefined') {
+      throw new Error(`Invalid user response structure for user ${userId}`);
+    }
+    
+    return {
+      data: user,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async createUser(userData: {
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    roles: Array<{ id: number }>;
+    password?: string;
+    phone?: string;
+    smsEmail?: string;
+    timezone?: string;
+    note?: string;
+    apionly?: boolean;
+    forcePasswordChange?: boolean;
+    contactMethod?: string;
+  }): Promise<ApiResult<LMUser>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: '/setting/admins',
+      method: 'post',
+      payload: userData
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.post('/setting/admins', userData);
+    const duration = performance.now() - startedAt;
+    
+    const user = response.data;
+    
+    if (!user || typeof user.id === 'undefined') {
+      throw new Error('Invalid user response structure returned from create.');
+    }
+    
+    return {
+      data: user,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async updateUser(userId: number, updates: Record<string, unknown>): Promise<ApiResult<LMUser>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/admins/${userId}`,
+      method: 'patch',
+      payload: updates
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.patch(`/setting/admins/${userId}`, updates);
+    const duration = performance.now() - startedAt;
+    
+    const user = response.data;
+    
+    if (!user || typeof user.id === 'undefined') {
+      throw new Error(`Invalid user response structure for user ${userId}`);
+    }
+    
+    return {
+      data: user,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async deleteUser(userId: number): Promise<ApiResult<void>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/admins/${userId}`,
+      method: 'delete'
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.delete(`/setting/admins/${userId}`);
+    const duration = performance.now() - startedAt;
+    
+    return {
+      data: undefined,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async listUserAPITokens(userId: number): Promise<{ items: LMAPIToken[]; total: number; raw: unknown; meta: LogicMonitorResponseMeta }> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/admins/${userId}/apitokens`,
+      method: 'get'
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.get(`/setting/admins/${userId}/apitokens`);
+    const duration = performance.now() - startedAt;
+    
+    const items = response.data.items || [];
+    const total = response.data.total || items.length;
+    
+    return {
+      items,
+      total,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async createUserAPIToken(userId: number, tokenData: { note: string }): Promise<ApiResult<LMAPIToken>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/admins/${userId}/apitokens`,
+      method: 'post',
+      payload: tokenData
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.post(`/setting/admins/${userId}/apitokens`, tokenData);
+    const duration = performance.now() - startedAt;
+    
+    const token = response.data;
+    
+    if (!token || typeof token.accessId === 'undefined') {
+      throw new Error('Invalid API token response structure returned from create.');
+    }
+    
+    return {
+      data: token,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async deleteUserAPIToken(userId: number, tokenId: number): Promise<ApiResult<void>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/admins/${userId}/apitokens/${tokenId}`,
+      method: 'delete'
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.delete(`/setting/admins/${userId}/apitokens/${tokenId}`);
+    const duration = performance.now() - startedAt;
+    
+    return {
+      data: undefined,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  // Dashboard Management Methods
+  async listDashboards(params?: {
+    filter?: string;
+    size?: number;
+    offset?: number;
+    fields?: string;
+  }): Promise<ApiListResult<LMDashboard>> {
+    const sanitizedParams: Record<string, unknown> = {
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: new Set(['name', 'description', 'groupId', 'owner', 'template']),
+            resourceName: 'dashboard'
+          })
+        : undefined,
+      size: params?.size ?? 50,
+      offset: params?.offset ?? 0,
+      fields: params?.fields
+    };
+    
+    return this.paginateAll<LMDashboard>('/dashboard/dashboards', sanitizedParams);
+  }
+
+  async getDashboard(dashboardId: number, params?: { fields?: string }): Promise<ApiResult<LMDashboard>> {
+    const { fields } = params || {};
+    
+    const queryParams = Object.fromEntries(
+      Object.entries({
+        fields: fields && fields !== '*' ? fields : undefined
+      }).filter(([, value]) => value !== undefined && value !== null)
+    );
+
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/dashboard/dashboards/${dashboardId}`,
+      method: 'get',
+      params: queryParams
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.get(`/dashboard/dashboards/${dashboardId}`, {
+      params: queryParams
+    });
+    const duration = performance.now() - startedAt;
+    
+    const dashboard = response.data;
+    
+    if (!dashboard || typeof dashboard.id === 'undefined') {
+      throw new Error(`Invalid dashboard response structure for dashboard ${dashboardId}`);
+    }
+    
+    return {
+      data: dashboard,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async createDashboard(dashboardData: {
+    name: string;
+    groupId: number;
+    description?: string;
+    widgetsConfig?: string;
+    widgetTokens?: Array<{ name: string; value: string }>;
+    template?: boolean;
+    sharable?: boolean;
+  }): Promise<ApiResult<LMDashboard>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: '/dashboard/dashboards',
+      method: 'post',
+      payload: dashboardData
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.post('/dashboard/dashboards', dashboardData);
+    const duration = performance.now() - startedAt;
+    
+    const dashboard = response.data;
+    
+    if (!dashboard || typeof dashboard.id === 'undefined') {
+      throw new Error('Invalid dashboard response structure returned from create.');
+    }
+    
+    return {
+      data: dashboard,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async updateDashboard(dashboardId: number, updates: Record<string, unknown>): Promise<ApiResult<LMDashboard>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/dashboard/dashboards/${dashboardId}`,
+      method: 'patch',
+      payload: updates
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.patch(`/dashboard/dashboards/${dashboardId}`, updates);
+    const duration = performance.now() - startedAt;
+    
+    const dashboard = response.data;
+    
+    if (!dashboard || typeof dashboard.id === 'undefined') {
+      throw new Error(`Invalid dashboard response structure for dashboard ${dashboardId}`);
+    }
+    
+    return {
+      data: dashboard,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async deleteDashboard(dashboardId: number): Promise<ApiResult<void>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/dashboard/dashboards/${dashboardId}`,
+      method: 'delete'
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.delete(`/dashboard/dashboards/${dashboardId}`);
+    const duration = performance.now() - startedAt;
+    
+    return {
+      data: undefined,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  // Collector Group Management Methods
+  async listCollectorGroups(params?: {
+    filter?: string;
+    size?: number;
+    offset?: number;
+    fields?: string;
+  }): Promise<ApiListResult<LMCollectorGroup>> {
+    const sanitizedParams: Record<string, unknown> = {
+      filter: params?.filter
+        ? formatLogicMonitorFilter(params.filter, {
+            allowedFields: new Set(['name', 'description', 'numOfCollectors', 'autoBalance']),
+            resourceName: 'collectorGroup'
+          })
+        : undefined,
+      size: params?.size ?? 50,
+      offset: params?.offset ?? 0,
+      fields: params?.fields
+    };
+    
+    return this.paginateAll<LMCollectorGroup>('/setting/collector/groups', sanitizedParams);
+  }
+
+  async getCollectorGroup(groupId: number, params?: { fields?: string }): Promise<ApiResult<LMCollectorGroup>> {
+    const { fields } = params || {};
+    
+    const queryParams = Object.fromEntries(
+      Object.entries({
+        fields: fields && fields !== '*' ? fields : undefined
+      }).filter(([, value]) => value !== undefined && value !== null)
+    );
+
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/collector/groups/${groupId}`,
+      method: 'get',
+      params: queryParams
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.get(`/setting/collector/groups/${groupId}`, {
+      params: queryParams
+    });
+    const duration = performance.now() - startedAt;
+    
+    const group = response.data;
+    
+    if (!group || typeof group.id === 'undefined') {
+      throw new Error(`Invalid collector group response structure for group ${groupId}`);
+    }
+    
+    return {
+      data: group,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async createCollectorGroup(groupData: {
+    name: string;
+    description: string;
+    autoBalance?: boolean;
+    autoBalanceInstanceCountThreshold?: number;
+    customProperties?: Array<{ name: string; value: string }>;
+  }): Promise<ApiResult<LMCollectorGroup>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: '/setting/collector/groups',
+      method: 'post',
+      payload: groupData
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.post('/setting/collector/groups', groupData);
+    const duration = performance.now() - startedAt;
+    
+    const group = response.data;
+    
+    if (!group || typeof group.id === 'undefined') {
+      throw new Error('Invalid collector group response structure returned from create.');
+    }
+    
+    return {
+      data: group,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async updateCollectorGroup(groupId: number, updates: Record<string, unknown>): Promise<ApiResult<LMCollectorGroup>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/collector/groups/${groupId}`,
+      method: 'patch',
+      payload: updates
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.patch(`/setting/collector/groups/${groupId}`, updates);
+    const duration = performance.now() - startedAt;
+    
+    const group = response.data;
+    
+    if (!group || typeof group.id === 'undefined') {
+      throw new Error(`Invalid collector group response structure for group ${groupId}`);
+    }
+    
+    return {
+      data: group,
+      raw: response.data,
+      meta: this.createResponseMeta(response, requestContext, duration)
+    };
+  }
+
+  async deleteCollectorGroup(groupId: number): Promise<ApiResult<void>> {
+    const requestContext: LogicMonitorRequestContext = {
+      endpoint: `/setting/collector/groups/${groupId}`,
+      method: 'delete'
+    };
+
+    const startedAt = performance.now();
+    const response = await this.axiosInstance.delete(`/setting/collector/groups/${groupId}`);
+    const duration = performance.now() - startedAt;
+    
+    return {
+      data: undefined,
+      raw: response.data,
       meta: this.createResponseMeta(response, requestContext, duration)
     };
   }

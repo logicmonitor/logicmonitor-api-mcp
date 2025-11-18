@@ -1,7 +1,7 @@
 import swaggerDocument from '../../docs/swagger.json' with { type: 'json' };
 import { parseFieldList } from './fieldSelection.js';
 
-export type ResourceKey = 'device' | 'deviceGroup' | 'collector' | 'website' | 'websiteGroup' | 'alert';
+export type ResourceKey = 'device' | 'deviceGroup' | 'collector' | 'website' | 'websiteGroup' | 'alert' | 'user' | 'dashboard' | 'collectorGroup';
 
 interface FieldInfo {
   definitionName: string;
@@ -14,14 +14,21 @@ const resourceDefinitionMap: Record<ResourceKey, string> = {
   collector: 'Collector',
   website: 'Website',
   websiteGroup: 'WebsiteGroup',
-  alert: 'Alert'
+  alert: 'Alert',
+  user: 'Admin',
+  dashboard: 'Dashboard',
+  collectorGroup: 'CollectorGroup'
 };
 
 const cache = new Map<ResourceKey, FieldInfo>();
 
 function buildFieldInfo(resource: ResourceKey): FieldInfo {
   if (cache.has(resource)) {
-    return cache.get(resource)!;
+    const cached = cache.get(resource);
+    if (!cached) {
+      throw new Error(`Failed to get cached field info for resource: ${resource}`);
+    }
+    return cached;
   }
 
   const definitionName = resourceDefinitionMap[resource];

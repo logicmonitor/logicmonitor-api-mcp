@@ -301,3 +301,92 @@ export interface LMWebsiteGroup {
     value: string;
   }>;
 }
+
+export interface LMAPIToken {
+  accessId: string;
+  accessKey?: string;
+  note: string;
+  createdOn: number;
+  createdBy: string;
+  adminId: number;
+  adminName: string;
+  type: number;
+  status: number;
+}
+
+export interface LMUser {
+  id: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  smsEmail: string;
+  smsEmailFormat: string;
+  timezone: string;
+  viewPermission: {
+    Dashboards: boolean;
+    Devices: boolean;
+    Logs: boolean;
+    Reports: boolean;
+    Websites: boolean;
+    Settings: boolean;
+  };
+  status: string;
+  roles: Array<{
+    id: number;
+    name: string;
+  }>;
+  apiTokens?: LMAPIToken[];
+  apionly: boolean;
+  note: string;
+  createdBy: string;
+  createdOn: number;
+  lastAction: string;
+  lastActionOn: number;
+  contactMethod: string;
+  forcePasswordChange: boolean;
+  twoFAEnabled: boolean;
+  acceptEULA: boolean;
+  acceptEULAOn: number;
+  lastLoginOn: number;
+  adminGroupIds: string;
+}
+
+export interface LMDashboard {
+  id: number;
+  name: string;
+  description: string;
+  groupId: number;
+  groupName: string;
+  groupFullPath: string;
+  fullName: string;
+  template: boolean;
+  widgetsConfig: string;
+  widgetTokens: Array<{
+    name: string;
+    value: string;
+  }>;
+  owner: string;
+  sharable: boolean;
+  userPermission: string;
+  defaultDashboardFilters?: Array<{
+    name: string;
+    value: string;
+  }>;
+  overwriteGroupFields: boolean;
+}
+
+export interface LMCollectorGroup {
+  id: number;
+  name: string;
+  description: string;
+  createdOn: number;
+  numOfCollectors: number;
+  autoBalance: boolean;
+  autoBalanceInstanceCountThreshold: number;
+  customProperties: Array<{
+    name: string;
+    value: string;
+  }>;
+}

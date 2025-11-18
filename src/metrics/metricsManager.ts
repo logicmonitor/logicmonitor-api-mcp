@@ -72,7 +72,11 @@ class MetricsManager {
         failure: 0
       });
     }
-    return this.metrics.get(tool)!;
+    const metrics = this.metrics.get(tool);
+    if (!metrics) {
+      throw new Error(`Failed to get metrics for tool: ${tool}`);
+    }
+    return metrics;
   }
 }
 

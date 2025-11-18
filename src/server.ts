@@ -10,16 +10,21 @@ import winston from 'winston';
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from './appInfo.js';
 import { LogicMonitorClient } from './api/client.js';
 import { LogicMonitorApiError } from './api/errors.js';
-import { deviceTools, handleDeviceTool } from './tools/devices.js';
-import { deviceGroupTools, handleDeviceGroupTool } from './tools/deviceGroups.js';
-import { collectorTools, handleCollectorTool } from './tools/collectors.js';
-import { alertTools, listAlerts, getAlert, ackAlert, addAlertNote, escalateAlert } from './tools/alerts.js';
-import { websiteTools, handleWebsiteTool } from './tools/websites.js';
-import { websiteGroupTools, handleWebsiteGroupTool } from './tools/websiteGroups.js';
+import { resourceTools } from './tools/resourceTools.js';
 import { sessionTools, handleSessionTool } from './tools/session.js';
-import { SessionManager, SessionContext } from './session/sessionManager.js';
+import { SessionManager } from './session/sessionManager.js';
 import { metricsManager } from './metrics/metricsManager.js';
 import { getKnownFields, ResourceKey } from './utils/fieldMetadata.js';
+import { DeviceHandler } from './resources/device/DeviceHandler.js';
+import { DeviceGroupHandler } from './resources/deviceGroup/DeviceGroupHandler.js';
+import { AlertHandler } from './resources/alert/AlertHandler.js';
+import { WebsiteHandler } from './resources/website/WebsiteHandler.js';
+import { WebsiteGroupHandler } from './resources/websiteGroup/WebsiteGroupHandler.js';
+import { CollectorHandler } from './resources/collector/CollectorHandler.js';
+import { UserHandler } from './resources/user/UserHandler.js';
+import { DashboardHandler } from './resources/dashboard/DashboardHandler.js';
+import { CollectorGroupHandler } from './resources/collectorGroup/CollectorGroupHandler.js';
+import type { ResourceType } from './types/operations.js';
 
 export interface ServerConfig {
   name?: string;
@@ -52,10 +57,10 @@ export async function createServer(config: ServerConfig = {}) {
   });
 
   const instructions = config.instructions || [
-    APP_DESCRIPTION || 'Use the LogicMonitor tools to manage resources, devices, collectors, and alerts.',
+    APP_DESCRIPTION || 'Use the LogicMonitor tools to manage resources, devices, collectors, alerts, users, dashboards, and more.',
     'Authenticate with LM_ACCOUNT / LM_BEARER_TOKEN environment variables (stdio) or X-LM-* headers (HTTP).',
     'Every tool returns the raw LogicMonitor API payload plus request metadata. Use the metadata to chain follow-up actions safely.',
-    'Before setting `fields` or `filter`, call resources/read on health://logicmonitor/fields/<resource> (device, device_group, website, website_group, collector, alert) to confirm supported field names. Unknown fields are rejected.',
+    'Before setting `fields` or `filter`, call resources/read on health://logicmonitor/fields/<resource> (device, device_group, website, website_group, collector, collector_group, alert, user, dashboard) to confirm supported field names. Unknown fields are rejected.',
     'Filters must use only those field names. Example filters are included in each field metadata resource.',
     'Session helpers (lm_*_session_*) let you store variables, review history, and manage context between tool calls.'
   ].join('\n');
@@ -95,43 +100,64 @@ export async function createServer(config: ServerConfig = {}) {
       key: 'device',
       resource: 'device',
       uri: 'health://logicmonitor/fields/device',
-      description: 'Valid fields for lm_list_devices / lm_get_device.',
+      description: 'Valid fields for lm_device tool.',
       filterExamples: ['displayName:"*prod*"', 'hostStatus:"alive"', 'preferredCollectorId:12']
     },
     {
       key: 'deviceGroup',
       resource: 'device_group',
       uri: 'health://logicmonitor/fields/device_group',
-      description: 'Valid fields for device group tools.',
+      description: 'Valid fields for lm_device_group tool.',
       filterExamples: ['name:"*servers*"', 'parentId:1']
     },
     {
       key: 'website',
       resource: 'website',
       uri: 'health://logicmonitor/fields/website',
-      description: 'Valid fields for website tools.',
+      description: 'Valid fields for lm_website tool.',
       filterExamples: ['name:"*checkout*"', 'groupId:12']
     },
     {
       key: 'websiteGroup',
       resource: 'website_group',
       uri: 'health://logicmonitor/fields/website_group',
-      description: 'Valid fields for website group tools.',
+      description: 'Valid fields for lm_website_group tool.',
       filterExamples: ['name:"*public*"', 'parentId:5']
     },
     {
       key: 'collector',
       resource: 'collector',
       uri: 'health://logicmonitor/fields/collector',
-      description: 'Valid fields for lm_list_collectors.',
+      description: 'Valid fields for lm_collector tool.',
       filterExamples: ['status:"active"', 'collectorGroupId:3']
     },
     {
       key: 'alert',
       resource: 'alert',
       uri: 'health://logicmonitor/fields/alert',
-      description: 'Valid fields for alert tools.',
+      description: 'Valid fields for lm_alert tool.',
       filterExamples: ['severity>:2', 'resourceId:123']
+    },
+    {
+      key: 'user',
+      resource: 'user',
+      uri: 'health://logicmonitor/fields/user',
+      description: 'Valid fields for lm_user tool.',
+      filterExamples: ['username:"*admin*"', 'email:"*@example.com"', 'status:"active"']
+    },
+    {
+      key: 'dashboard',
+      resource: 'dashboard',
+      uri: 'health://logicmonitor/fields/dashboard',
+      description: 'Valid fields for lm_dashboard tool.',
+      filterExamples: ['name:"*overview*"', 'groupId:5', 'owner:"admin"']
+    },
+    {
+      key: 'collectorGroup',
+      resource: 'collector_group',
+      uri: 'health://logicmonitor/fields/collector_group',
+      description: 'Valid fields for lm_collector_group tool.',
+      filterExamples: ['name:"*production*"', 'autoBalance:true']
     }
   ];
 
@@ -212,12 +238,7 @@ export async function createServer(config: ServerConfig = {}) {
 
 
   const allTools = [
-    ...deviceTools,
-    ...deviceGroupTools,
-    ...collectorTools,
-    ...alertTools,
-    ...websiteTools,
-    ...websiteGroupTools,
+    ...resourceTools,
     ...sessionTools
   ];
 
@@ -228,7 +249,6 @@ export async function createServer(config: ServerConfig = {}) {
   mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
     const sessionId = extra?.sessionId;
-    const sessionContext = sessionManager.getContext(sessionId);
 
     logger.info('Tool call received', { tool: name, args, sessionId });
 
@@ -252,23 +272,25 @@ export async function createServer(config: ServerConfig = {}) {
 
       if (isSessionTool) {
         result = await handleSessionTool(name, args, sessionManager, sessionId);
-      } else if (name.startsWith('lm_') && name.includes('device_group')) {
-        result = await handleDeviceGroupTool(name, args, client!, sessionContext);
-      } else if (name.startsWith('lm_') && name.includes('website_group')) {
-        result = await handleWebsiteGroupTool(name, args, client!, sessionContext);
-      } else if (name.startsWith('lm_') && name.includes('collector')) {
-        result = await handleCollectorTool(name, args, client!, sessionContext);
-      } else if (name.startsWith('lm_') && name.includes('alert')) {
-        result = await handleAlertTool(name, args, client!, sessionContext);
-      } else if (name.startsWith('lm_') && name.includes('website')) {
-        result = await handleWebsiteTool(name, args, client!, sessionContext);
-      } else if (name.startsWith('lm_') && name.includes('device')) {
-        result = await handleDeviceTool(name, args, client!, sessionContext);
       } else {
-        throw new McpError(
-          ErrorCode.MethodNotFound,
-          `Unknown tool: ${name}`
-        );
+        // Route to appropriate resource handler
+        const resourceType = getResourceTypeFromToolName(name);
+        if (!resourceType) {
+          throw new McpError(
+            ErrorCode.MethodNotFound,
+            `Unknown tool: ${name}`
+          );
+        }
+
+        if (!client) {
+          throw new McpError(
+            ErrorCode.InternalError,
+            'Client not initialized for resource operation'
+          );
+        }
+
+        const handler = createResourceHandler(resourceType, client, sessionManager, sessionId);
+        result = await handler.handleOperation(args as any);
       }
 
       sessionManager.recordResult(sessionId, name, args, result);
@@ -323,32 +345,56 @@ export async function createServer(config: ServerConfig = {}) {
     }
   });
 
-  async function handleAlertTool(name: string, args: any, client: LogicMonitorClient, sessionContext: SessionContext): Promise<any> {
-    switch (name) {
-      case 'lm_list_alerts':
-        {
-          const alertList = await listAlerts(client, args);
-          sessionContext.variables.lastAlertList = alertList.items ?? [];
-          sessionContext.variables.lastAlertQuery = alertList.request ?? args;
-          return alertList;
-        }
-      case 'lm_get_alert':
-        {
-          const alert = await getAlert(client, args);
-          sessionContext.variables.lastAlert = alert;
-          sessionContext.variables.lastAlertId = args?.alertId;
-          return alert;
-        }
-      case 'lm_ack_alert':
-        return ackAlert(client, args);
-      case 'lm_add_alert_note':
-        return addAlertNote(client, args);
-      case 'lm_escalate_alert':
-        return escalateAlert(client, args);
+  /**
+   * Extract resource type from tool name
+   */
+  function getResourceTypeFromToolName(toolName: string): ResourceType | null {
+    const mapping: Record<string, ResourceType> = {
+      'lm_device': 'device',
+      'lm_device_group': 'deviceGroup',
+      'lm_website': 'website',
+      'lm_website_group': 'websiteGroup',
+      'lm_collector': 'collector',
+      'lm_alert': 'alert',
+      'lm_user': 'user',
+      'lm_dashboard': 'dashboard',
+      'lm_collector_group': 'collectorGroup'
+    };
+    return mapping[toolName] || null;
+  }
+
+  /**
+   * Create appropriate resource handler based on resource type
+   */
+  function createResourceHandler(
+    resourceType: ResourceType,
+    client: LogicMonitorClient,
+    sessionManager: SessionManager,
+    sessionId?: string
+  ) {
+    switch (resourceType) {
+      case 'device':
+        return new DeviceHandler(client, sessionManager, sessionId);
+      case 'deviceGroup':
+        return new DeviceGroupHandler(client, sessionManager, sessionId);
+      case 'website':
+        return new WebsiteHandler(client, sessionManager, sessionId);
+      case 'websiteGroup':
+        return new WebsiteGroupHandler(client, sessionManager, sessionId);
+      case 'collector':
+        return new CollectorHandler(client, sessionManager, sessionId);
+      case 'alert':
+        return new AlertHandler(client, sessionManager, sessionId);
+      case 'user':
+        return new UserHandler(client, sessionManager, sessionId);
+      case 'dashboard':
+        return new DashboardHandler(client, sessionManager, sessionId);
+      case 'collectorGroup':
+        return new CollectorGroupHandler(client, sessionManager, sessionId);
       default:
         throw new McpError(
           ErrorCode.MethodNotFound,
-          `Unknown alert tool: ${name}`
+          `Unknown resource type: ${resourceType}`
         );
     }
   }

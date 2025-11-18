@@ -1,5 +1,8 @@
 export type SessionScope = 'variables' | 'history' | 'results' | 'all';
 
+export type ResourceType = 'device' | 'deviceGroup' | 'website' | 'websiteGroup' | 'collector' | 'alert' | 'user' | 'dashboard' | 'collectorGroup';
+export type OperationType = 'list' | 'get' | 'create' | 'update' | 'delete';
+
 export interface SessionHistoryEntry {
   timestamp: string;
   tool: string;
@@ -7,11 +10,20 @@ export interface SessionHistoryEntry {
   summary: string;
 }
 
+export interface ResourceOperation {
+  type: ResourceType;
+  operation: OperationType;
+  result: unknown;
+  timestamp: string;
+}
+
 export interface SessionContext {
   id: string;
   variables: Record<string, unknown>;
   lastResults: Record<string, unknown>;
   history: SessionHistoryEntry[];
+  lastOperation?: ResourceOperation;
+  resourceCache: Map<ResourceType, Map<number | string, unknown>>;
 }
 
 const DEFAULT_SESSION_ID = 'default';
@@ -22,7 +34,9 @@ function createEmptyContext(id: string): SessionContext {
     id,
     variables: {},
     lastResults: {},
-    history: []
+    history: [],
+    lastOperation: undefined,
+    resourceCache: new Map()
   };
 }
 
@@ -129,7 +143,124 @@ export class SessionManager {
       sessionId: context.id,
       variables: { ...context.variables },
       lastResults: options?.includeResults ? { ...context.lastResults } : Object.keys(context.lastResults),
-      history
+      history,
+      lastOperation: context.lastOperation
     };
+  }
+
+  /**
+   * Record a resource operation in session context
+   */
+  recordOperation(
+    sessionId: string | undefined,
+    resourceType: ResourceType,
+    operation: OperationType,
+    result: unknown
+  ): void {
+    const context = this.getContext(sessionId);
+    context.lastOperation = {
+      type: resourceType,
+      operation,
+      result,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Cache a resource in session context
+   */
+  cacheResource(
+    sessionId: string | undefined,
+    resourceType: ResourceType,
+    id: number | string,
+    resource: unknown
+  ): void {
+    const context = this.getContext(sessionId);
+    if (!context.resourceCache.has(resourceType)) {
+      context.resourceCache.set(resourceType, new Map());
+    }
+    const cache = context.resourceCache.get(resourceType);
+    if (!cache) {
+      throw new Error(`Failed to get resource cache for type: ${resourceType}`);
+    }
+    cache.set(id, resource);
+  }
+
+  /**
+   * Get cached resource
+   */
+  getCachedResource(
+    sessionId: string | undefined,
+    resourceType: ResourceType,
+    id: number | string
+  ): unknown | undefined {
+    const context = this.getContext(sessionId);
+    return context.resourceCache.get(resourceType)?.get(id);
+  }
+
+  /**
+   * Resolve resource ID from session context
+   * Supports automatic ID resolution from last operations
+   */
+  resolveResourceId(
+    sessionId: string | undefined,
+    resourceType: ResourceType,
+    idField: string = 'id'
+  ): number | string | undefined {
+    const context = this.getContext(sessionId);
+
+    // Check last operation for this resource type
+    if (context.lastOperation?.type === resourceType) {
+      const result = context.lastOperation.result as Record<string, unknown>;
+      
+      // Check if result has the ID field directly
+      if (result && typeof result[idField] !== 'undefined') {
+        return result[idField] as number | string;
+      }
+
+      // Check if result has a data property with the ID
+      if (result?.data && typeof (result.data as Record<string, unknown>)[idField] !== 'undefined') {
+        return (result.data as Record<string, unknown>)[idField] as number | string;
+      }
+    }
+
+    // Check session variables for last created/retrieved resource
+    const resourceName = this.getResourceName(resourceType);
+    const lastCreatedKey = `lastCreated${resourceName}`;
+    const lastKey = `last${resourceName}`;
+
+    if (context.variables[lastCreatedKey]) {
+      const resource = context.variables[lastCreatedKey] as Record<string, unknown>;
+      if (resource && typeof resource[idField] !== 'undefined') {
+        return resource[idField] as number | string;
+      }
+    }
+
+    if (context.variables[lastKey]) {
+      const resource = context.variables[lastKey] as Record<string, unknown>;
+      if (resource && typeof resource[idField] !== 'undefined') {
+        return resource[idField] as number | string;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get resource name from resource type (for session variable naming)
+   */
+  private getResourceName(resourceType: ResourceType): string {
+    const names: Record<ResourceType, string> = {
+      device: 'Device',
+      deviceGroup: 'DeviceGroup',
+      website: 'Website',
+      websiteGroup: 'WebsiteGroup',
+      collector: 'Collector',
+      alert: 'Alert',
+      user: 'User',
+      dashboard: 'Dashboard',
+      collectorGroup: 'CollectorGroup'
+    };
+    return names[resourceType];
   }
 }

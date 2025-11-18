@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server that provides secure access to the LogicMo
 
 ## Features
 
-- **Comprehensive Resource Management**: Devices, device groups, websites, website groups, collectors, and alerts
+- **Comprehensive Resource Management**: Devices, device groups, websites, website groups, collectors, alerts, users, dashboards, and collector groups
 - **Batch Operations**: Process multiple items efficiently with rate limiting and error handling
 - **Secure Authentication**: Credentials passed per-request, never stored
 - **Flexible Deployment**: Supports both stdio (local) and HTTP (remote) transports
@@ -145,54 +145,132 @@ When no `X-LM-*` headers are provided, the server falls back to `LM_ACCOUNT` and
 
 ## Available Tools
 
-### Device Management
-- `lm_list_devices` - List devices with filtering
-- `lm_get_device` - Get device details
-- `lm_create_device` - Add device(s) to monitoring
-- `lm_update_device` - Update device(s) configuration
-- `lm_delete_device` - Remove device(s) from monitoring
+The server provides **9 resource-based tools** that handle all CRUD operations through an `operation` parameter:
 
-### Device Group Management
-- `lm_list_device_groups` - List device groups
-- `lm_get_device_group` - Get group details
-- `lm_create_device_group` - Create device group(s)
-- `lm_update_device_group` - Update group(s)
-- `lm_delete_device_group` - Delete group(s)
+### Core Resource Tools
 
-### Website Monitoring
-- `lm_list_websites` - List monitored websites
-- `lm_get_website` - Get website details
-- `lm_create_website` - Add website(s) to monitoring
-- `lm_update_website` - Update website(s)
-- `lm_delete_website` - Remove website(s)
+#### `lm_device`
+Manage LogicMonitor devices with all operations:
+- **list** - List devices with filtering and pagination
+- **get** - Get device details (ID can be omitted if referencing last operation)
+- **create** - Add single device or batch of devices
+- **update** - Update single device or batch (supports explicit arrays, applyToPrevious, filter-based)
+- **delete** - Remove single device or batch
 
-### Website Group Management
-- `lm_list_website_groups` - List website groups
-- `lm_get_website_group` - Get group details
-- `lm_create_website_group` - Create website group(s)
-- `lm_update_website_group` - Update group(s)
-- `lm_delete_website_group` - Delete group(s)
+#### `lm_device_group`
+Manage device groups with full CRUD support:
+- **list** - List device groups
+- **get** - Get group details
+- **create** - Create single or multiple groups
+- **update** - Update groups (single or batch)
+- **delete** - Delete groups (with optional deleteChildren)
 
-### Alert Management
-- `lm_list_alerts` - List alerts with filtering
-- `lm_get_alert` - Get alert details
-- `lm_ack_alert` - Acknowledge an alert
-- `lm_add_alert_note` - Add note to alert
-- `lm_escalate_alert` - Escalate alert
+#### `lm_website`
+Manage website monitoring:
+- **list** - List monitored websites
+- **get** - Get website details
+- **create** - Add websites to monitoring
+- **update** - Update website configuration
+- **delete** - Remove websites
 
-### Collector Management
-- `lm_list_collectors` - List collectors
+#### `lm_website_group`
+Manage website groups:
+- **list** - List website groups
+- **get** - Get group details
+- **create** - Create website groups
+- **update** - Update groups
+- **delete** - Delete groups
+
+#### `lm_collector`
+List and view collectors (read-only):
+- **list** - List collectors with filtering
+
+#### `lm_alert`
+Manage alerts (read and update only):
+- **list** - List alerts with filtering
+- **get** - Get alert details
+- **update** - Perform actions (ack, note, escalate)
+
+#### `lm_user`
+Manage LogicMonitor users:
+- **list** - List users with filtering
+- **get** - Get user details
+- **create** - Create single user or batch of users
+- **update** - Update users (single or batch)
+- **delete** - Delete users (single or batch)
+
+#### `lm_dashboard`
+Manage LogicMonitor dashboards:
+- **list** - List dashboards with filtering
+- **get** - Get dashboard details
+- **create** - Create single dashboard or batch
+- **update** - Update dashboards (single or batch)
+- **delete** - Delete dashboards (single or batch)
+
+#### `lm_collector_group`
+Manage collector groups:
+- **list** - List collector groups with filtering
+- **get** - Get collector group details
+- **create** - Create single collector group or batch
+- **update** - Update collector groups (single or batch)
+- **delete** - Delete collector groups (single or batch)
 
 ### Session Utilities
-- `lm_get_session_context` - View stored variables, last results, and recent history for the active session
-- `lm_set_session_variable` - Persist custom key/value pairs across tool calls during the session
-- `lm_get_session_variable` - Retrieve values previously stored in the session
-- `lm_clear_session_context` - Reset session state (variables, results, history)
-- `lm_list_session_history` - Inspect recent MCP tool invocations and summaries
+- `lm_get_session_context` - View stored variables, last results, and recent history
+- `lm_set_session_variable` - Persist custom key/value pairs across tool calls
+- `lm_get_session_variable` - Retrieve stored session values
+- `lm_clear_session_context` - Reset session state
+- `lm_list_session_history` - Inspect recent tool invocations
+
+## Key Features
+
+### Automatic ID Resolution
+The server automatically resolves resource IDs from previous operations:
+```
+# Create a device
+lm_device({ operation: "create", displayName: "web-01", ... })
+
+# Update it without specifying ID - automatically uses last created device
+lm_device({ operation: "update", disableAlerting: true })
+```
+
+### Flexible Batch Operations
+Three ways to perform batch operations:
+
+**1. Explicit Arrays**
+```json
+{
+  "operation": "update",
+  "devices": [
+    {"id": 123, "disableAlerting": true},
+    {"id": 456, "disableAlerting": true}
+  ]
+}
+```
+
+**2. Apply to Previous Results**
+```json
+// First, list devices
+{"operation": "list", "filter": "name:web*"}
+
+// Then update all from previous list
+{
+  "operation": "update",
+  "applyToPrevious": "lastDeviceList",
+  "updates": {"disableAlerting": true}
+}
+```
+
+**3. Filter-Based Batch**
+```json
+{
+  "operation": "update",
+  "filter": "name:web*",
+  "updates": {"disableAlerting": true}
+}
+```
 
 ## Usage Examples
-
-Once configured, you can use natural language with your AI assistant:
 
 ### Simple Operations
 ```
@@ -200,29 +278,39 @@ Once configured, you can use natural language with your AI assistant:
 
 "List all devices in the Production group"
 
-"Disable alerting on device ID 1234"
+"Get details for device 1234"
+
+"Update the device to disable alerting"  # Automatically uses device from previous operation
 ```
 
-### Batch Operations
+### Batch Operations with Natural Language
 ```
-"Add these servers to monitoring:
-- web-01 (10.0.1.1) in group Production
-- web-02 (10.0.1.2) in group Production
-- db-01 (10.0.2.1) in group Dev
-All should use collector 1"
+"List all devices with names starting with 'web'"
 
+"Update all those devices to disable alerting"  # Uses applyToPrevious automatically
+
+"Create these device groups:
+- Production Web Servers (parent: 1)
+- Production Database Servers (parent: 1)
+- Staging Web Servers (parent: 2)"
+```
+
+### Filter-Based Batch Operations
+```
 "Update all devices matching 'test-*' to disable alerting"
+# Translates to: lm_device({ operation: "update", filter: "name:test*", updates: { disableAlerting: true }})
+
+"Delete all devices in the 'temp' group"
+# Uses filter-based batch delete with safety checks
 ```
 
-### Complex Workflows
+### Working with Alerts
 ```
-"Create a device group structure:
-- Production
-  - Web Servers
-  - Database Servers
-- Staging
-  - Web Servers
-  - Database Servers"
+"List all critical alerts that aren't cleared"
+
+"Acknowledge the first alert with comment 'Investigating'"
+
+"Add a note to alert 12345 saying 'Fixed in deploy #456'"
 ```
 
 ## Development

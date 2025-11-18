@@ -1,6 +1,6 @@
 {
   "name": "logicmonitor-api-mcp",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "MCP server for LogicMonitor API integration",
   "main": "dist/index.js",
   "type": "module",
@@ -12,6 +12,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js",
     "test": "jest",
     "test:client": "node tests/test-client.js",
     "test:headers": "node tests/test-headers.js",
