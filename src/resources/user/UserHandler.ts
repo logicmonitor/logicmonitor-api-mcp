@@ -20,6 +20,7 @@ import type {
   DeleteOperationArgs,
   OperationResult
 } from '../../types/operations.js';
+import type { BatchResult, BatchItem } from '../../utils/batchProcessor.js';
 import {
   validateListUsers,
   validateGetUser,
@@ -133,7 +134,8 @@ export class UserHandler extends ResourceHandler<LMUser> {
 
     const batchResult = await batchProcessor.processBatch(
       usersInput,
-      async (userPayload) => this.client.createUser(userPayload),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (userPayload) => this.client.createUser(userPayload as any),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -164,8 +166,10 @@ export class UserHandler extends ResourceHandler<LMUser> {
       return result;
     }
 
-    const successful = normalized.filter((entry: any) => entry.success && entry.data);
-    const successfulUsers = successful.map((entry: any) => entry.data as LMUser);
+    const successful = normalized.filter(entry => entry.success && entry.data);
+    const successfulUsers = successful
+      .filter((entry): entry is typeof entry & { data: LMUser } => entry.data !== undefined)
+      .map(entry => entry.data);
 
     const result: OperationResult<LMUser> = {
       success: batchResult.success,
@@ -191,6 +195,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
 
     if (isBatch) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resolution = await BatchOperationResolver.resolveItems<any>(
         validated,
         this.sessionContext,
@@ -204,7 +209,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
       const updates = validated.updates || {};
       const batchResult = await batchProcessor.processBatch(
         resolution.items,
-        async (user: any) => {
+        async (user: Record<string, unknown>) => {
           const userId = user.id ?? user.userId;
           if (!userId) {
             throw new McpError(ErrorCode.InvalidParams, 'User ID is required for update');
@@ -212,7 +217,8 @@ export class UserHandler extends ResourceHandler<LMUser> {
           const mergedUpdates = { ...user, ...updates };
           delete mergedUpdates.id;
           delete mergedUpdates.userId;
-          return this.client.updateUser(userId, mergedUpdates);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return this.client.updateUser(userId as number, mergedUpdates as any);
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -222,11 +228,13 @@ export class UserHandler extends ResourceHandler<LMUser> {
       );
 
       const normalized = this.normalizeBatchResults(batchResult);
-      const successful = normalized.filter((entry: any) => entry.success && entry.data);
+      const successful = normalized.filter(entry => entry.success && entry.data);
 
       const result: OperationResult<LMUser> = {
         success: batchResult.success,
-        items: successful.map((entry: any) => entry.data as LMUser),
+        items: successful
+          .filter((entry): entry is typeof entry & { data: LMUser } => entry.data !== undefined)
+          .map(entry => entry.data),
         summary: batchResult.summary,
         request: {
           batch: true,
@@ -275,11 +283,12 @@ export class UserHandler extends ResourceHandler<LMUser> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
 
     if (isBatch) {
-      let itemsToDelete: any[];
+      let itemsToDelete: Array<Record<string, unknown>>;
 
       if (validated.ids && Array.isArray(validated.ids)) {
         itemsToDelete = validated.ids.map((id: number) => ({ id }));
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const resolution = await BatchOperationResolver.resolveItems<any>(
           validated,
           this.sessionContext,
@@ -293,12 +302,14 @@ export class UserHandler extends ResourceHandler<LMUser> {
 
       const batchResult = await batchProcessor.processBatch(
         itemsToDelete,
-        async (user: any) => {
+        async (user: Record<string, unknown>) => {
           const userId = user.id ?? user.userId;
           if (!userId) {
             throw new McpError(ErrorCode.InvalidParams, 'User ID is required for delete');
           }
-          return this.client.deleteUser(userId);
+          await this.client.deleteUser(userId as number);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return { id: userId } as any as LMUser;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -307,7 +318,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
         }
       );
 
-      const normalized = this.normalizeBatchResults(batchResult);
+      const normalized = this.normalizeBatchResults(batchResult as BatchResult<LMUser>);
 
       const result: OperationResult<LMUser> = {
         success: batchResult.success,
@@ -342,11 +353,11 @@ export class UserHandler extends ResourceHandler<LMUser> {
     return result;
   }
 
-  private isBatchCreate(args: any): boolean {
-    return args.users && Array.isArray(args.users);
+  private isBatchCreate(args: Record<string, unknown>): boolean {
+    return !!(args.users && Array.isArray(args.users));
   }
 
-  private normalizeCreateInput(args: any): any[] {
+  private normalizeCreateInput(args: Record<string, unknown>): Array<Record<string, unknown>> {
     if (args.users && Array.isArray(args.users)) {
       return args.users;
     }
@@ -356,11 +367,11 @@ export class UserHandler extends ResourceHandler<LMUser> {
     return [singleUser];
   }
 
-  private normalizeBatchResults(batch: any) {
-    return batch.results.map((entry: any) => ({
+  private normalizeBatchResults(batch: BatchResult<LMUser>): Array<BatchItem<LMUser>> {
+    return batch.results.map(entry => ({
       index: entry.index,
       success: entry.success,
-      data: entry.data ?? null,
+      data: entry.data,
       error: entry.error,
       diagnostics: entry.diagnostics,
       meta: entry.meta,

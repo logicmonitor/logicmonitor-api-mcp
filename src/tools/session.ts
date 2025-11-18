@@ -111,10 +111,10 @@ export const sessionTools: Tool[] = [
 
 export async function handleSessionTool(
   toolName: string,
-  args: any,
+  args: unknown,
   sessionManager: SessionManager,
   sessionId: string | undefined
-): Promise<any> {
+): Promise<unknown> {
   switch (toolName) {
     case 'lm_get_session_context': {
       const validated = await getContextSchema.validateAsync(args || {});

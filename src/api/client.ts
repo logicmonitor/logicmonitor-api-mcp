@@ -229,6 +229,7 @@ export class LogicMonitorClient {
    */
   private async paginateAll<T>(
     endpoint: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params?: Record<string, any>
   ): Promise<ApiListResult<T>> {
     const requestedSize = params?.size ?? 1000;
@@ -1159,7 +1160,9 @@ export class LogicMonitorClient {
       const items = Array.isArray(page.items) ? page.items : [];
       allItems.push(...items);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (!searchId && typeof (page as any)?.searchId === 'string') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         searchId = (page as any).searchId;
       }
 

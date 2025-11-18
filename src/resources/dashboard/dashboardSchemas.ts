@@ -38,7 +38,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListDashboards(args: any) {
+export function validateListDashboards(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -54,7 +54,7 @@ export function validateListDashboards(args: any) {
   return value;
 }
 
-export function validateGetDashboard(args: any) {
+export function validateGetDashboard(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -69,7 +69,7 @@ export function validateGetDashboard(args: any) {
   return value;
 }
 
-export function validateCreateDashboard(args: any) {
+export function validateCreateDashboard(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('create').required(),
     // Single dashboard properties
@@ -100,7 +100,7 @@ export function validateCreateDashboard(args: any) {
   return value;
 }
 
-export function validateUpdateDashboard(args: any) {
+export function validateUpdateDashboard(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.number().optional(),
@@ -128,7 +128,7 @@ export function validateUpdateDashboard(args: any) {
   return value;
 }
 
-export function validateDeleteDashboard(args: any) {
+export function validateDeleteDashboard(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

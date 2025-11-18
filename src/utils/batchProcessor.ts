@@ -214,6 +214,7 @@ export class BatchProcessor {
     // Check for common batch property names
     const batchProps = ['items', 'devices', 'groups', 'collectors', 'websites'];
     return batchProps.some(prop => 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prop in input && Array.isArray((input as any)[prop])
     );
   }
@@ -229,6 +230,7 @@ export class BatchProcessor {
     }
 
     // Check for batch properties
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const batchInput = input as any;
     if (Array.isArray(batchInput.items)) return batchInput.items;
     if (Array.isArray(batchInput.devices)) return batchInput.devices;

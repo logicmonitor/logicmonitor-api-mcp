@@ -20,6 +20,7 @@ import type {
   DeleteOperationArgs,
   OperationResult
 } from '../../types/operations.js';
+import type { BatchResult, BatchItem } from '../../utils/batchProcessor.js';
 import {
   validateListDashboards,
   validateGetDashboard,
@@ -133,7 +134,8 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
 
     const batchResult = await batchProcessor.processBatch(
       dashboardsInput,
-      async (dashboardPayload) => this.client.createDashboard(dashboardPayload),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (dashboardPayload) => this.client.createDashboard(dashboardPayload as any),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -164,8 +166,10 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
       return result;
     }
 
-    const successful = normalized.filter((entry: any) => entry.success && entry.data);
-    const successfulDashboards = successful.map((entry: any) => entry.data as LMDashboard);
+    const successful = normalized.filter(entry => entry.success && entry.data);
+    const successfulDashboards = successful
+      .filter((entry): entry is typeof entry & { data: LMDashboard } => entry.data !== undefined)
+      .map(entry => entry.data);
 
     const result: OperationResult<LMDashboard> = {
       success: batchResult.success,
@@ -191,6 +195,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
 
     if (isBatch) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resolution = await BatchOperationResolver.resolveItems<any>(
         validated,
         this.sessionContext,
@@ -204,7 +209,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
       const updates = validated.updates || {};
       const batchResult = await batchProcessor.processBatch(
         resolution.items,
-        async (dashboard: any) => {
+        async (dashboard: Record<string, unknown>) => {
           const dashboardId = dashboard.id ?? dashboard.dashboardId;
           if (!dashboardId) {
             throw new McpError(ErrorCode.InvalidParams, 'Dashboard ID is required for update');
@@ -212,7 +217,8 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
           const mergedUpdates = { ...dashboard, ...updates };
           delete mergedUpdates.id;
           delete mergedUpdates.dashboardId;
-          return this.client.updateDashboard(dashboardId, mergedUpdates);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return this.client.updateDashboard(dashboardId as number, mergedUpdates as any);
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -222,11 +228,13 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
       );
 
       const normalized = this.normalizeBatchResults(batchResult);
-      const successful = normalized.filter((entry: any) => entry.success && entry.data);
+      const successful = normalized.filter(entry => entry.success && entry.data);
 
       const result: OperationResult<LMDashboard> = {
         success: batchResult.success,
-        items: successful.map((entry: any) => entry.data as LMDashboard),
+        items: successful
+          .filter((entry): entry is typeof entry & { data: LMDashboard } => entry.data !== undefined)
+          .map(entry => entry.data),
         summary: batchResult.summary,
         request: {
           batch: true,
@@ -275,11 +283,12 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
 
     if (isBatch) {
-      let itemsToDelete: any[];
+      let itemsToDelete: Array<Record<string, unknown>>;
 
       if (validated.ids && Array.isArray(validated.ids)) {
         itemsToDelete = validated.ids.map((id: number) => ({ id }));
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const resolution = await BatchOperationResolver.resolveItems<any>(
           validated,
           this.sessionContext,
@@ -293,12 +302,14 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
 
       const batchResult = await batchProcessor.processBatch(
         itemsToDelete,
-        async (dashboard: any) => {
+        async (dashboard: Record<string, unknown>) => {
           const dashboardId = dashboard.id ?? dashboard.dashboardId;
           if (!dashboardId) {
             throw new McpError(ErrorCode.InvalidParams, 'Dashboard ID is required for delete');
           }
-          return this.client.deleteDashboard(dashboardId);
+          await this.client.deleteDashboard(dashboardId as number);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return { id: dashboardId } as any as LMDashboard;
         },
         {
           maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -307,7 +318,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
         }
       );
 
-      const normalized = this.normalizeBatchResults(batchResult);
+      const normalized = this.normalizeBatchResults(batchResult as BatchResult<LMDashboard>);
 
       const result: OperationResult<LMDashboard> = {
         success: batchResult.success,
@@ -342,11 +353,11 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
     return result;
   }
 
-  private isBatchCreate(args: any): boolean {
-    return args.dashboards && Array.isArray(args.dashboards);
+  private isBatchCreate(args: Record<string, unknown>): boolean {
+    return !!(args.dashboards && Array.isArray(args.dashboards));
   }
 
-  private normalizeCreateInput(args: any): any[] {
+  private normalizeCreateInput(args: Record<string, unknown>): Array<Record<string, unknown>> {
     if (args.dashboards && Array.isArray(args.dashboards)) {
       return args.dashboards;
     }
@@ -356,11 +367,11 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
     return [singleDashboard];
   }
 
-  private normalizeBatchResults(batch: any) {
-    return batch.results.map((entry: any) => ({
+  private normalizeBatchResults(batch: BatchResult<LMDashboard>): Array<BatchItem<LMDashboard>> {
+    return batch.results.map(entry => ({
       index: entry.index,
       success: entry.success,
-      data: entry.data ?? null,
+      data: entry.data,
       error: entry.error,
       diagnostics: entry.diagnostics,
       meta: entry.meta,

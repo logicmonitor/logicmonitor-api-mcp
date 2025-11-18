@@ -14,7 +14,7 @@ const batchOptionsSchema = Joi.object({
 /**
  * Validate list_datasources operation
  */
-export function validateListDatasources(args: any) {
+export function validateListDatasources(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list_datasources').required(),
     deviceId: Joi.number().when('deviceIds', {
@@ -51,7 +51,7 @@ export function validateListDatasources(args: any) {
 /**
  * Validate list_instances operation
  */
-export function validateListInstances(args: any) {
+export function validateListInstances(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list_instances').required(),
     deviceId: Joi.number().required(),
@@ -88,7 +88,7 @@ export function validateListInstances(args: any) {
 /**
  * Validate get_data operation
  */
-export function validateGetData(args: any) {
+export function validateGetData(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get_data').required(),
     deviceId: Joi.number().required(),

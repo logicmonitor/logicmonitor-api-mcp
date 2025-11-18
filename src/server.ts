@@ -230,6 +230,7 @@ export async function createServer(config: ServerConfig = {}) {
     logger.error('MCP server error', { error: error.message, stack: error.stack });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (mcpServer as any).sessionManager = sessionManager;
 
   const summarizeResultForMetrics = (result: unknown): Record<string, unknown> | undefined => {
@@ -316,7 +317,7 @@ export async function createServer(config: ServerConfig = {}) {
         client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
       }
 
-      let result: any;
+      let result: unknown;
 
       if (isSessionTool) {
         result = await handleSessionTool(name, args, sessionManager, sessionId);
@@ -338,6 +339,7 @@ export async function createServer(config: ServerConfig = {}) {
         }
 
         const handler = createResourceHandler(resourceType, client, sessionManager, sessionId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await handler.handleOperation(args as any);
       }
 

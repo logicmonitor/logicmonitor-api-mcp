@@ -101,13 +101,17 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
 
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMWebsite>> {
     const validated = validateCreateWebsite(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isBatch = !!((validated as any).websites && Array.isArray((validated as any).websites));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const websitesInput = isBatch ? (validated as any).websites : [validated];
 
     const batchResult = await batchProcessor.processBatch(
       websitesInput,
-      async (website: any) => this.client.createWebsite(website),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (website: Record<string, unknown>) => this.client.createWebsite(website as any),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -149,6 +153,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
   protected async handleUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMWebsite>> {
     const validated = validateUpdateWebsite(args);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (BatchOperationResolver.isBatchOperation(validated as any, 'websites')) {
       return this.handleBatchUpdate(validated);
     }
@@ -158,6 +163,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
       throw new McpError(ErrorCode.InvalidParams, 'Website ID must be a number');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { id: _id, operation: _operation, updates: _updateData, applyToPrevious: _applyToPrevious, filter: _filter, batchOptions: _batchOptions, ...rest } = validated as any;
     const apiResult = await this.client.updateWebsite(websiteId, rest);
 
@@ -176,6 +182,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
   protected async handleDelete(args: DeleteOperationArgs): Promise<OperationResult<LMWebsite>> {
     const validated = validateDeleteWebsite(args);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (BatchOperationResolver.isBatchOperation(validated as any, 'websites')) {
       return this.handleBatchDelete(validated);
     }
@@ -189,6 +196,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
 
     const result: OperationResult<LMWebsite> = {
       success: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { websiteId } as any,
       raw: apiResult.raw,
       meta: apiResult.meta
@@ -199,8 +207,9 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
     return result;
   }
 
-  private async handleBatchUpdate(args: any): Promise<OperationResult<LMWebsite>> {
+  private async handleBatchUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMWebsite>> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -211,7 +220,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
 
     BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
-    const updateOps = resolution.items.map((item: any) => ({
+    const updateOps = resolution.items.map(item => ({
       websiteId: item.id || item.websiteId,
       updates: args.updates || item
     }));
@@ -238,8 +247,9 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
     return result;
   }
 
-  private async handleBatchDelete(args: any): Promise<OperationResult<LMWebsite>> {
+  private async handleBatchDelete(args: DeleteOperationArgs): Promise<OperationResult<LMWebsite>> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -250,7 +260,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
 
     BatchOperationResolver.validateBatchSafety(resolution, 'delete');
 
-    const deleteOps = resolution.items.map((item: any) => ({
+    const deleteOps = resolution.items.map(item => ({
       websiteId: item.id || item.websiteId
     }));
 
@@ -267,6 +277,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
     const result: OperationResult<LMWebsite> = {
       success: batchResult.success,
       summary: batchResult.summary,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       results: batchResult.results as any
     };
 

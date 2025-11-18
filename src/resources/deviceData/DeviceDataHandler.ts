@@ -15,6 +15,7 @@ import type {
   LMDeviceDataFormatted
 } from '../../types/logicmonitor.js';
 import type { OperationResult } from '../../types/operations.js';
+import type { BatchResult, BatchItem } from '../../utils/batchProcessor.js';
 import {
   validateListDatasources,
   validateListInstances,
@@ -23,10 +24,12 @@ import {
 
 interface DeviceDataOperationArgs {
   operation: 'list_datasources' | 'list_instances' | 'get_data';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
-export class DeviceDataHandler extends ResourceHandler<any> {
+type DeviceDataType = LMDeviceDatasource | LMDeviceDatasourceInstance | LMDeviceDataFormatted;
+
+export class DeviceDataHandler extends ResourceHandler<DeviceDataType> {
   constructor(
     client: LogicMonitorClient,
     sessionManager: SessionManager,
@@ -44,7 +47,7 @@ export class DeviceDataHandler extends ResourceHandler<any> {
     );
   }
 
-  async handleOperation(args: DeviceDataOperationArgs): Promise<OperationResult<any>> {
+  async handleOperation(args: DeviceDataOperationArgs): Promise<OperationResult<DeviceDataType>> {
     const { operation } = args;
 
     switch (operation) {
@@ -65,7 +68,7 @@ export class DeviceDataHandler extends ResourceHandler<any> {
   /**
    * List datasources for a device
    */
-  private async handleListDatasources(args: any): Promise<OperationResult<LMDeviceDatasource>> {
+  private async handleListDatasources(args: unknown): Promise<OperationResult<LMDeviceDatasource>> {
     const validated = validateListDatasources(args);
     const { deviceId, filter, size, offset, fields, datasourceIncludeFilter, datasourceExcludeFilter } = validated;
 
@@ -121,7 +124,7 @@ export class DeviceDataHandler extends ResourceHandler<any> {
   /**
    * List instances for a datasource
    */
-  private async handleListInstances(args: any): Promise<OperationResult<LMDeviceDatasourceInstance>> {
+  private async handleListInstances(args: unknown): Promise<OperationResult<LMDeviceDatasourceInstance>> {
     const validated = validateListInstances(args);
     const { deviceId, datasourceId, filter, size, offset, fields } = validated;
 
@@ -157,7 +160,7 @@ export class DeviceDataHandler extends ResourceHandler<any> {
   /**
    * Get metric data for instance(s)
    */
-  private async handleGetData(args: any): Promise<OperationResult<LMDeviceDataFormatted>> {
+  private async handleGetData(args: unknown): Promise<OperationResult<LMDeviceDataFormatted>> {
     const validated = validateGetData(args);
     const {
       deviceId,
@@ -277,9 +280,9 @@ export class DeviceDataHandler extends ResourceHandler<any> {
     datapointsParam: string | undefined,
     format: string | undefined,
     aggregate: string | undefined,
-    rawBatchOptions: any
+    rawBatchOptions: unknown
   ): Promise<OperationResult<LMDeviceDataFormatted>> {
-    const batchOptions = rawBatchOptions || {};
+    const batchOptions = (rawBatchOptions as Record<string, unknown>) || {} as Record<string, unknown>;
 
     // Build batch operations
     const batchOps = instanceIds.map(instId => ({
@@ -317,18 +320,20 @@ export class DeviceDataHandler extends ResourceHandler<any> {
         );
       },
       {
-        maxConcurrent: batchOptions.maxConcurrent || 5,
-        continueOnError: batchOptions.continueOnError ?? true,
+        maxConcurrent: (batchOptions.maxConcurrent as number) || 5,
+        continueOnError: (batchOptions.continueOnError as boolean) ?? true,
         retryOnRateLimit: true
       }
     );
 
-    const normalized = this.normalizeBatchResults(batchResult);
-    const successful = normalized.filter((entry: any) => entry.success && entry.data);
+    const normalized = this.normalizeBatchResults(batchResult as BatchResult<LMDeviceDataFormatted>);
+    const successful = normalized.filter(entry => entry.success && entry.data);
 
     const result: OperationResult<LMDeviceDataFormatted> = {
       success: batchResult.success,
-      items: successful.map((entry: any) => entry.data as LMDeviceDataFormatted),
+      items: successful
+        .filter((entry): entry is typeof entry & { data: LMDeviceDataFormatted } => entry.data !== undefined)
+        .map(entry => entry.data),
       summary: batchResult.summary,
       request: {
         deviceId,
@@ -352,16 +357,13 @@ export class DeviceDataHandler extends ResourceHandler<any> {
   /**
    * Normalize batch results to consistent format
    */
-  private normalizeBatchResults(batchResult: any): any[] {
-    return batchResult.results.map((result: any, index: number) => ({
+  private normalizeBatchResults(batchResult: BatchResult<LMDeviceDataFormatted>): Array<BatchItem<LMDeviceDataFormatted>> {
+    return batchResult.results.map((result, index) => ({
       index,
       success: result.success,
-      data: result.success ? result.result : undefined,
-      error: result.error?.message,
-      diagnostics: result.error ? {
-        type: result.error.constructor.name,
-        details: result.error
-      } : undefined
+      data: result.success ? result.data : undefined,
+      error: result.error,
+      diagnostics: result.diagnostics
     }));
   }
 
@@ -395,7 +397,7 @@ export class DeviceDataHandler extends ResourceHandler<any> {
     // Convert raw data into structured format
     for (let i = 0; i < rawData.time.length; i++) {
       const timestamp = rawData.time[i];
-      const dataPoint: any = {
+      const dataPoint: Record<string, number | string> = {
         timestampEpoch: timestamp,
         timestampUTC: new Date(timestamp).toISOString()
       };
@@ -404,10 +406,10 @@ export class DeviceDataHandler extends ResourceHandler<any> {
       for (let j = 0; j < rawData.dataPoints.length; j++) {
         const metricName = rawData.dataPoints[j];
         const value = rawData.values[i]?.[j];
-        dataPoint[metricName] = value !== null && value !== undefined ? value : null;
+        dataPoint[metricName] = value !== null && value !== undefined ? value : 0;
       }
 
-      dataPoints.push(dataPoint);
+      dataPoints.push(dataPoint as { timestampEpoch: number; timestampUTC: string; [datapoint: string]: number | string });
     }
 
     return {
@@ -422,35 +424,35 @@ export class DeviceDataHandler extends ResourceHandler<any> {
   }
 
   // Required abstract methods from ResourceHandler
-  protected async handleList(_args: any): Promise<OperationResult<any>> {
+  protected async handleList(_args: unknown): Promise<OperationResult<DeviceDataType>> {
     throw new McpError(
       ErrorCode.MethodNotFound,
       'Use list_datasources or list_instances operations instead'
     );
   }
 
-  protected async handleGet(_args: any): Promise<OperationResult<any>> {
+  protected async handleGet(_args: unknown): Promise<OperationResult<DeviceDataType>> {
     throw new McpError(
       ErrorCode.MethodNotFound,
       'Use get_data operation instead'
     );
   }
 
-  protected async handleCreate(_args: any): Promise<OperationResult<any>> {
+  protected async handleCreate(_args: unknown): Promise<OperationResult<DeviceDataType>> {
     throw new McpError(
       ErrorCode.MethodNotFound,
       'Device data cannot be created via API'
     );
   }
 
-  protected async handleUpdate(_args: any): Promise<OperationResult<any>> {
+  protected async handleUpdate(_args: unknown): Promise<OperationResult<DeviceDataType>> {
     throw new McpError(
       ErrorCode.MethodNotFound,
       'Device data cannot be updated via API'
     );
   }
 
-  protected async handleDelete(_args: any): Promise<OperationResult<any>> {
+  protected async handleDelete(_args: unknown): Promise<OperationResult<DeviceDataType>> {
     throw new McpError(
       ErrorCode.MethodNotFound,
       'Device data cannot be deleted via API'

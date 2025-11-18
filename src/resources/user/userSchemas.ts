@@ -48,7 +48,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListUsers(args: any) {
+export function validateListUsers(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -64,7 +64,7 @@ export function validateListUsers(args: any) {
   return value;
 }
 
-export function validateGetUser(args: any) {
+export function validateGetUser(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -79,7 +79,7 @@ export function validateGetUser(args: any) {
   return value;
 }
 
-export function validateCreateUser(args: any) {
+export function validateCreateUser(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('create').required(),
     // Single user properties
@@ -128,7 +128,7 @@ export function validateCreateUser(args: any) {
   return value;
 }
 
-export function validateUpdateUser(args: any) {
+export function validateUpdateUser(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.number().optional(),
@@ -161,7 +161,7 @@ export function validateUpdateUser(args: any) {
   return value;
 }
 
-export function validateDeleteUser(args: any) {
+export function validateDeleteUser(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

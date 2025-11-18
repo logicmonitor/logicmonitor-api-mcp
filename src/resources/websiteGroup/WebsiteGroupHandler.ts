@@ -100,13 +100,17 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
 
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMWebsiteGroup>> {
     const validated = validateCreateWebsiteGroup(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isBatch = !!((validated as any).groups && Array.isArray((validated as any).groups));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupsInput = isBatch ? (validated as any).groups : [validated];
 
     const batchResult = await batchProcessor.processBatch(
       groupsInput,
-      async (group: any) => this.client.createWebsiteGroup(group),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (group: Record<string, unknown>) => this.client.createWebsiteGroup(group as any),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -148,6 +152,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
   protected async handleUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMWebsiteGroup>> {
     const validated = validateUpdateWebsiteGroup(args);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (BatchOperationResolver.isBatchOperation(validated as any, 'groups')) {
       return this.handleBatchUpdate(validated);
     }
@@ -157,6 +162,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
       throw new McpError(ErrorCode.InvalidParams, 'Website group ID must be a number');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { id: _id, operation: _operation, updates: _updateData, applyToPrevious: _applyToPrevious, filter: _filter, batchOptions: _batchOptions, ...rest } = validated as any;
     const apiResult = await this.client.updateWebsiteGroup(groupId, rest);
 
@@ -175,6 +181,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
   protected async handleDelete(args: DeleteOperationArgs): Promise<OperationResult<LMWebsiteGroup>> {
     const validated = validateDeleteWebsiteGroup(args);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (BatchOperationResolver.isBatchOperation(validated as any, 'groups')) {
       return this.handleBatchDelete(validated);
     }
@@ -185,11 +192,13 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
     }
 
     const apiResult = await this.client.deleteWebsiteGroup(groupId, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       deleteChildren: (validated as any).deleteChildren ?? false
     });
 
     const result: OperationResult<LMWebsiteGroup> = {
       success: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { groupId } as any,
       raw: apiResult.raw,
       meta: apiResult.meta
@@ -200,8 +209,9 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
     return result;
   }
 
-  private async handleBatchUpdate(args: any): Promise<OperationResult<LMWebsiteGroup>> {
+  private async handleBatchUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMWebsiteGroup>> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -212,7 +222,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
 
     BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
-    const updateOps = resolution.items.map((item: any) => ({
+    const updateOps = resolution.items.map(item => ({
       groupId: item.id || item.groupId,
       updates: args.updates || item
     }));
@@ -239,8 +249,9 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
     return result;
   }
 
-  private async handleBatchDelete(args: any): Promise<OperationResult<LMWebsiteGroup>> {
+  private async handleBatchDelete(args: DeleteOperationArgs): Promise<OperationResult<LMWebsiteGroup>> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -251,9 +262,9 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
 
     BatchOperationResolver.validateBatchSafety(resolution, 'delete');
 
-    const deleteOps = resolution.items.map((item: any) => ({
+    const deleteOps = resolution.items.map(item => ({
       groupId: item.id || item.groupId,
-      deleteChildren: args.deleteChildren ?? false
+      deleteChildren: (args.deleteChildren as boolean) ?? false
     }));
 
     const batchResult = await batchProcessor.processBatch(
@@ -269,6 +280,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
     const result: OperationResult<LMWebsiteGroup> = {
       success: batchResult.success,
       summary: batchResult.summary,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       results: batchResult.results as any
     };
 

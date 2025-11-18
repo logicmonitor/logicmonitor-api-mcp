@@ -11,7 +11,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListWebsiteGroups(args: any) {
+export function validateListWebsiteGroups(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -27,7 +27,7 @@ export function validateListWebsiteGroups(args: any) {
   return value;
 }
 
-export function validateGetWebsiteGroup(args: any) {
+export function validateGetWebsiteGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -42,7 +42,7 @@ export function validateGetWebsiteGroup(args: any) {
   return value;
 }
 
-export function validateCreateWebsiteGroup(args: any) {
+export function validateCreateWebsiteGroup(args: unknown) {
   const singleGroupSchema = Joi.object({
     name: Joi.string().required(),
     parentId: Joi.number().required(),
@@ -89,7 +89,7 @@ export function validateCreateWebsiteGroup(args: any) {
   return value;
 }
 
-export function validateUpdateWebsiteGroup(args: any) {
+export function validateUpdateWebsiteGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.number().optional(),
@@ -118,7 +118,7 @@ export function validateUpdateWebsiteGroup(args: any) {
   return value;
 }
 
-export function validateDeleteWebsiteGroup(args: any) {
+export function validateDeleteWebsiteGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

@@ -34,6 +34,7 @@ function buildFieldInfo(resource: ResourceKey): FieldInfo {
   }
 
   const definitionName = resourceDefinitionMap[resource];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const definition = (swaggerDocument as any)?.definitions?.[definitionName];
   const properties = definition?.properties ?? {};
   const fields = new Set<string>(Object.keys(properties));

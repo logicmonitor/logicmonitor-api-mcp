@@ -5,7 +5,7 @@
 import Joi from 'joi';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
-export function validateListCollectors(args: any) {
+export function validateListCollectors(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),

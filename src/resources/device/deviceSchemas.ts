@@ -51,7 +51,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListDevices(args: any) {
+export function validateListDevices(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -71,7 +71,7 @@ export function validateListDevices(args: any) {
   return value;
 }
 
-export function validateGetDevice(args: any) {
+export function validateGetDevice(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -90,7 +90,7 @@ export function validateGetDevice(args: any) {
   return value;
 }
 
-export function validateCreateDevice(args: any) {
+export function validateCreateDevice(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('create').required(),
     // Single device properties
@@ -139,7 +139,7 @@ export function validateCreateDevice(args: any) {
   return value;
 }
 
-export function validateUpdateDevice(args: any) {
+export function validateUpdateDevice(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     // Single device update
@@ -175,7 +175,7 @@ export function validateUpdateDevice(args: any) {
   return value;
 }
 
-export function validateDeleteDevice(args: any) {
+export function validateDeleteDevice(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

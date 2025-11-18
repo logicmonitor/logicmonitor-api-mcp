@@ -122,14 +122,14 @@ export abstract class ResourceHandler<T = unknown> {
         if (result.items) {
           this.sessionContext.variables[`last${resourceName}List`] = result.items;
           this.sessionContext.variables[`last${resourceName}ListIds`] = result.items.map(
-            (item: any) => item[this.config.idField]
+            item => (item as Record<string, unknown>)[this.config.idField]
           );
         }
         break;
       case 'get':
         if (result.data) {
           this.sessionContext.variables[`last${resourceName}`] = result.data;
-          this.sessionContext.variables[`last${resourceName}Id`] = (result.data as any)[this.config.idField];
+          this.sessionContext.variables[`last${resourceName}Id`] = (result.data as Record<string, unknown>)[this.config.idField];
         }
         break;
       case 'create':
@@ -149,8 +149,8 @@ export abstract class ResourceHandler<T = unknown> {
         }
         break;
       case 'delete':
-        if (result.data && typeof (result.data as any)[this.config.idField] !== 'undefined') {
-          this.sessionContext.variables[`lastDeleted${resourceName}Id`] = (result.data as any)[this.config.idField];
+        if (result.data && typeof (result.data as Record<string, unknown>)[this.config.idField] !== 'undefined') {
+          this.sessionContext.variables[`lastDeleted${resourceName}Id`] = (result.data as Record<string, unknown>)[this.config.idField];
         }
         break;
     }

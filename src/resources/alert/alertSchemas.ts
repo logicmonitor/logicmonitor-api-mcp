@@ -5,7 +5,7 @@
 import Joi from 'joi';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
-export function validateListAlerts(args: any) {
+export function validateListAlerts(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -24,7 +24,7 @@ export function validateListAlerts(args: any) {
   return value;
 }
 
-export function validateGetAlert(args: any) {
+export function validateGetAlert(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.alternatives().try(Joi.string(), Joi.number()).optional(),
@@ -38,7 +38,7 @@ export function validateGetAlert(args: any) {
   return value;
 }
 
-export function validateUpdateAlert(args: any) {
+export function validateUpdateAlert(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.alternatives().try(Joi.string(), Joi.number()).optional(),

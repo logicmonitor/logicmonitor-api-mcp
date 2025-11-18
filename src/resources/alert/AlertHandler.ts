@@ -116,6 +116,7 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
 
   protected async handleUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMAlert>> {
     const validated = validateUpdateAlert(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const action = (validated as any).action;
     
     const alertId = validated.id ?? this.resolveId(validated);
@@ -126,9 +127,11 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
     let apiResult;
     switch (action) {
       case 'ack':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         apiResult = await this.client.ackAlert(String(alertId), (validated as any).ackComment || '');
         break;
       case 'note':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         apiResult = await this.client.addAlertNote(String(alertId), (validated as any).note || '');
         break;
       case 'escalate':
@@ -140,6 +143,7 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
 
     const result: OperationResult<LMAlert> = {
       success: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { alertId, action } as any,
       raw: apiResult.raw,
       meta: apiResult.meta

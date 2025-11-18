@@ -126,13 +126,16 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
 
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMDeviceGroup>> {
     const validated = validateCreateDeviceGroup(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isBatch = !!((validated as any).groups && Array.isArray((validated as any).groups));
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupsInput = isBatch ? (validated as any).groups : [validated];
 
     const batchResult = await batchProcessor.processBatch(
       groupsInput,
-      async (group: any) => this.client.createDeviceGroup(group),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (group: Record<string, unknown>) => this.client.createDeviceGroup(group as any),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -205,6 +208,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
   protected async handleDelete(args: DeleteOperationArgs): Promise<OperationResult<LMDeviceGroup>> {
     const validated = validateDeleteDeviceGroup(args);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (BatchOperationResolver.isBatchOperation(validated as any, 'groups')) {
       return this.handleBatchDelete(validated);
     }
@@ -215,11 +219,13 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
     }
 
     const apiResult = await this.client.deleteDeviceGroup(groupId, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       deleteChildren: (validated as any).deleteChildren ?? false
     });
 
     const result: OperationResult<LMDeviceGroup> = {
       success: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { groupId, deleteChildren: (validated as any).deleteChildren ?? false } as any,
       raw: apiResult.raw,
       meta: apiResult.meta
@@ -233,6 +239,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
 
   private async handleBatchUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMDeviceGroup>> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -243,7 +250,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
 
     BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
-    const updateOps = resolution.items.map((item: any) => ({
+    const updateOps = resolution.items.map(item => ({
       groupId: item.id || item.groupId,
       updates: args.updates || item
     }));
@@ -273,6 +280,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
 
   private async handleBatchDelete(args: DeleteOperationArgs): Promise<OperationResult<LMDeviceGroup>> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -283,8 +291,9 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
 
     BatchOperationResolver.validateBatchSafety(resolution, 'delete');
 
-    const deleteOps = resolution.items.map((item: any) => ({
+    const deleteOps = resolution.items.map(item => ({
       groupId: item.id || item.groupId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       deleteChildren: (args as any).deleteChildren ?? false
     }));
 
@@ -301,6 +310,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
     const result: OperationResult<LMDeviceGroup> = {
       success: batchResult.success,
       summary: batchResult.summary,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       results: batchResult.results as any
     };
 

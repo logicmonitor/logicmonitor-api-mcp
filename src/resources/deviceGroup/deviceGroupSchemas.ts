@@ -11,7 +11,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListDeviceGroups(args: any) {
+export function validateListDeviceGroups(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -28,7 +28,7 @@ export function validateListDeviceGroups(args: any) {
   return value;
 }
 
-export function validateGetDeviceGroup(args: any) {
+export function validateGetDeviceGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -43,7 +43,7 @@ export function validateGetDeviceGroup(args: any) {
   return value;
 }
 
-export function validateCreateDeviceGroup(args: any) {
+export function validateCreateDeviceGroup(args: unknown) {
   const singleGroupSchema = Joi.object({
     name: Joi.string().required(),
     parentId: Joi.number().required(),
@@ -88,7 +88,7 @@ export function validateCreateDeviceGroup(args: any) {
   return value;
 }
 
-export function validateUpdateDeviceGroup(args: any) {
+export function validateUpdateDeviceGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.number().optional(),
@@ -116,7 +116,7 @@ export function validateUpdateDeviceGroup(args: any) {
   return value;
 }
 
-export function validateDeleteDeviceGroup(args: any) {
+export function validateDeleteDeviceGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

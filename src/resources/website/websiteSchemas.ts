@@ -11,7 +11,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListWebsites(args: any) {
+export function validateListWebsites(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -28,7 +28,7 @@ export function validateListWebsites(args: any) {
   return value;
 }
 
-export function validateGetWebsite(args: any) {
+export function validateGetWebsite(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -43,7 +43,7 @@ export function validateGetWebsite(args: any) {
   return value;
 }
 
-export function validateCreateWebsite(args: any) {
+export function validateCreateWebsite(args: unknown) {
   const singleWebsiteSchema = Joi.object({
     name: Joi.string().required(),
     domain: Joi.string().required(),
@@ -117,7 +117,7 @@ export function validateCreateWebsite(args: any) {
   return value;
 }
 
-export function validateUpdateWebsite(args: any) {
+export function validateUpdateWebsite(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.number().optional(),
@@ -149,7 +149,7 @@ export function validateUpdateWebsite(args: any) {
   return value;
 }
 
-export function validateDeleteWebsite(args: any) {
+export function validateDeleteWebsite(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

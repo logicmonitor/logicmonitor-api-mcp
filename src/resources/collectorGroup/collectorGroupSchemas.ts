@@ -34,7 +34,7 @@ const batchOptionsSchema = Joi.object({
   dryRun: Joi.boolean().optional()
 }).optional();
 
-export function validateListCollectorGroups(args: any) {
+export function validateListCollectorGroups(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('list').required(),
     filter: Joi.string().optional(),
@@ -50,7 +50,7 @@ export function validateListCollectorGroups(args: any) {
   return value;
 }
 
-export function validateGetCollectorGroup(args: any) {
+export function validateGetCollectorGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('get').required(),
     id: Joi.number().optional(),
@@ -65,7 +65,7 @@ export function validateGetCollectorGroup(args: any) {
   return value;
 }
 
-export function validateCreateCollectorGroup(args: any) {
+export function validateCreateCollectorGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('create').required(),
     // Single collector group properties
@@ -94,7 +94,7 @@ export function validateCreateCollectorGroup(args: any) {
   return value;
 }
 
-export function validateUpdateCollectorGroup(args: any) {
+export function validateUpdateCollectorGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('update').required(),
     id: Joi.number().optional(),
@@ -120,7 +120,7 @@ export function validateUpdateCollectorGroup(args: any) {
   return value;
 }
 
-export function validateDeleteCollectorGroup(args: any) {
+export function validateDeleteCollectorGroup(args: unknown) {
   const schema = Joi.object({
     operation: Joi.string().valid('delete').required(),
     id: Joi.number().optional(),

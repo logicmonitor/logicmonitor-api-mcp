@@ -20,6 +20,7 @@ import type {
   DeleteOperationArgs,
   OperationResult
 } from '../../types/operations.js';
+import type { BatchResult, BatchItem } from '../../utils/batchProcessor.js';
 import {
   validateListDevices,
   validateGetDevice,
@@ -150,7 +151,8 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
 
     const batchResult = await batchProcessor.processBatch(
       devicesInput,
-      async (devicePayload) => this.client.createDevice(devicePayload),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (devicePayload) => this.client.createDevice(devicePayload as any),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -181,8 +183,10 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
       return result;
     }
 
-    const successful = normalized.filter((entry: any) => entry.success && entry.data);
-    const successfulDevices = successful.map((entry: any) => entry.data as LMDevice);
+    const successful = normalized.filter(entry => entry.success && entry.data);
+    const successfulDevices = successful
+      .filter((entry): entry is typeof entry & { data: LMDevice } => entry.data !== undefined)
+      .map(entry => entry.data);
 
     const result: OperationResult<LMDevice> = {
       success: batchResult.success,
@@ -259,7 +263,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
 
     const result: OperationResult<LMDevice> = {
       success: true,
-      data: { deviceId } as any,
+      data: { id: deviceId } as LMDevice,
       raw: apiResult.raw,
       meta: apiResult.meta
     };
@@ -277,7 +281,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
     
     // Resolve items from various sources
-    const resolution = await BatchOperationResolver.resolveItems<any>(
+    const resolution = await BatchOperationResolver.resolveItems<LMDevice>(
       args,
       this.sessionContext,
       this.client,
@@ -288,14 +292,14 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
     // Build update operations
-    const updateOps = resolution.items.map((item: any) => ({
-      deviceId: item.deviceId || item.id,
-      payload: args.updates || this.buildUpdatePayload(item)
+    const updateOps = resolution.items.map(item => ({
+      deviceId: (item as unknown as Record<string, unknown>).deviceId || item.id,
+      payload: args.updates || this.buildUpdatePayload(item as unknown as Record<string, unknown>)
     }));
 
     const batchResult = await batchProcessor.processBatch(
       updateOps,
-      async ({ deviceId, payload }) => this.client.updateDevice(deviceId, payload),
+      async ({ deviceId, payload }) => this.client.updateDevice(deviceId as number, payload),
       {
         maxConcurrent: batchOptions.maxConcurrent || 5,
         continueOnError: batchOptions.continueOnError ?? true,
@@ -304,11 +308,13 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     );
 
     const normalized = this.normalizeBatchResults(batchResult);
-    const successful = normalized.filter((entry: any) => entry.success && entry.data);
+    const successful = normalized.filter(entry => entry.success && entry.data);
 
     const result: OperationResult<LMDevice> = {
       success: batchResult.success,
-      items: successful.map((entry: any) => entry.data as LMDevice),
+      items: successful
+        .filter((entry): entry is typeof entry & { data: LMDevice } => entry.data !== undefined)
+        .map(entry => entry.data),
       summary: batchResult.summary,
       request: {
         batch: true,
@@ -332,6 +338,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(args);
     
     // Resolve items from various sources
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resolution = await BatchOperationResolver.resolveItems<any>(
       args,
       this.sessionContext,
@@ -343,8 +350,8 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     BatchOperationResolver.validateBatchSafety(resolution, 'delete');
 
     // Extract device IDs
-    const deviceIds = resolution.items.map((item: any) => ({
-      deviceId: item.deviceId || item.id
+    const deviceIds = resolution.items.map(item => ({
+      deviceId: (item as Record<string, unknown>).deviceId || item.id
     }));
 
     const batchResult = await batchProcessor.processBatch(
@@ -357,7 +364,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
       }
     );
 
-    const normalized = this.normalizeBatchResults(batchResult);
+    const normalized = this.normalizeBatchResults(batchResult as unknown as BatchResult<LMDevice>);
 
     const result: OperationResult<LMDevice> = {
       success: batchResult.success,
@@ -380,18 +387,18 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
   /**
    * Helper methods
    */
-  private isBatchCreate(args: any): boolean {
+  private isBatchCreate(args: Record<string, unknown>): boolean {
     return !!(args.devices && Array.isArray(args.devices) && args.devices.length > 1);
   }
 
-  private normalizeCreateInput(args: any): any[] {
+  private normalizeCreateInput(args: Record<string, unknown>): Array<Record<string, unknown>> {
     if (args.devices && Array.isArray(args.devices)) {
-      return args.devices.map((device: any) => this.mapCreateDeviceInput(device));
+      return args.devices.map(device => this.mapCreateDeviceInput(device));
     }
     return [this.mapCreateDeviceInput(args)];
   }
 
-  private mapCreateDeviceInput(input: any) {
+  private mapCreateDeviceInput(input: Record<string, unknown>) {
     const customProps = Array.isArray(input.customProperties)
       ? input.customProperties
       : Array.isArray(input.properties)
@@ -408,7 +415,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     };
   }
 
-  private buildUpdatePayload(input: any): Record<string, unknown> {
+  private buildUpdatePayload(input: Record<string, unknown>): Record<string, unknown> {
     const payload: Record<string, unknown> = {};
 
     if (input.displayName !== undefined) payload.displayName = input.displayName;
@@ -427,11 +434,11 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     return payload;
   }
 
-  private normalizeBatchResults(batch: any) {
-    return batch.results.map((entry: any) => ({
+  private normalizeBatchResults(batch: BatchResult<LMDevice>): Array<BatchItem<LMDevice>> {
+    return batch.results.map(entry => ({
       index: entry.index,
       success: entry.success,
-      data: entry.data ?? null,
+      data: entry.data,
       error: entry.error,
       diagnostics: entry.diagnostics,
       meta: entry.meta,
