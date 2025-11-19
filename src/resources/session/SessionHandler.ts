@@ -3,7 +3,7 @@
  * Handles session context operations (list history, get context, set/update variables, clear)
  */
 
-import { ResourceHandler } from '../base/ResourceHandler.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager, SessionScope } from '../../session/sessionManager.js';
 import type {
@@ -14,13 +14,7 @@ import type {
   DeleteOperationArgs,
   OperationResult
 } from '../../types/operations.js';
-import {
-  validateListSession,
-  validateGetSession,
-  validateCreateSession,
-  validateUpdateSession,
-  validateDeleteSession
-} from './sessionSchemas.js';
+import { validateSessionOperation } from './sessionZodSchemas.js';
 
 interface SessionData {
   sessionId?: string;
@@ -53,17 +47,18 @@ interface SessionData {
 
 export class SessionHandler extends ResourceHandler<SessionData> {
   constructor(
-    client: LogicMonitorClient,
     sessionManager: SessionManager,
     sessionId?: string
   ) {
+    // Session handler doesn't need a client - pass null as any
     super(
       {
         resourceType: 'session',
         resourceName: 'session',
         idField: 'sessionId'
       },
-      client,
+      // Session handler doesn't need a LogicMonitor client
+      null as unknown as LogicMonitorClient,
       sessionManager,
       sessionId
     );
@@ -74,7 +69,7 @@ export class SessionHandler extends ResourceHandler<SessionData> {
    * Maps to old lm_list_session_history
    */
   protected async handleList(args: ListOperationArgs): Promise<OperationResult<SessionData>> {
-    const validated = validateListSession(args);
+    const validated = validateSessionOperation(args) as Extract<ReturnType<typeof validateSessionOperation>, { operation: 'list' }>;
     const { limit } = validated;
 
     const snapshot = this.sessionManager.getSnapshot(this.sessionContext.id, {
@@ -102,7 +97,7 @@ export class SessionHandler extends ResourceHandler<SessionData> {
    * Maps to old lm_get_session_context and lm_get_session_variable
    */
   protected async handleGet(args: GetOperationArgs): Promise<OperationResult<SessionData>> {
-    const validated = validateGetSession(args);
+    const validated = validateSessionOperation(args) as Extract<ReturnType<typeof validateSessionOperation>, { operation: 'get' }>;
     const { key, historyLimit, includeResults } = validated;
 
     // If key is provided, get specific variable
@@ -162,7 +157,7 @@ export class SessionHandler extends ResourceHandler<SessionData> {
    * Maps to old lm_set_session_variable
    */
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<SessionData>> {
-    const validated = validateCreateSession(args);
+    const validated = validateSessionOperation(args) as Extract<ReturnType<typeof validateSessionOperation>, { operation: 'create' }>;
     const { key, value } = validated;
 
     const context = this.sessionManager.setVariable(this.sessionContext.id, key, value);
@@ -188,7 +183,7 @@ export class SessionHandler extends ResourceHandler<SessionData> {
    * Maps to old lm_set_session_variable (same behavior as create)
    */
   protected async handleUpdate(args: UpdateOperationArgs): Promise<OperationResult<SessionData>> {
-    const validated = validateUpdateSession(args);
+    const validated = validateSessionOperation(args) as Extract<ReturnType<typeof validateSessionOperation>, { operation: 'update' }>;
     const { key, value } = validated;
 
     const context = this.sessionManager.setVariable(this.sessionContext.id, key, value);
@@ -214,7 +209,7 @@ export class SessionHandler extends ResourceHandler<SessionData> {
    * Maps to old lm_clear_session_context
    */
   protected async handleDelete(args: DeleteOperationArgs): Promise<OperationResult<SessionData>> {
-    const validated = validateDeleteSession(args);
+    const validated = validateSessionOperation(args) as Extract<ReturnType<typeof validateSessionOperation>, { operation: 'delete' }>;
     const { scope } = validated;
 
     const updatedContext = this.sessionManager.clear(

@@ -3,8 +3,8 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
-import { BatchOperationResolver } from '../base/BatchResolver.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
+import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -25,7 +25,7 @@ import {
   validateCreateWebsite,
   validateUpdateWebsite,
   validateDeleteWebsite
-} from './websiteSchemas.js';
+} from './websiteZodSchemas.js';
 
 export class WebsiteHandler extends ResourceHandler<LMWebsite> {
   constructor(client: LogicMonitorClient, sessionManager: SessionManager, sessionId?: string) {

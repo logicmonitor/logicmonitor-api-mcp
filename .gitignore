@@ -29,6 +29,7 @@ yarn-error.log*
 .cursorrules
 CLAUDE.md
 DESIGN.md
+/docs
 
 .npmignore
 

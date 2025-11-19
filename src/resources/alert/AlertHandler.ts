@@ -2,8 +2,8 @@
  * Alert Resource Handler
  */
 
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
+import { McpError, ErrorCode } from '@socotra/modelcontextprotocol-sdk/types.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
@@ -16,24 +16,12 @@ import type {
   DeleteOperationArgs,
   OperationResult
 } from '../../types/operations.js';
-import {
-  validateListAlerts,
-  validateGetAlert,
-  validateUpdateAlert
-} from './alertSchemas.js';
+import { validateAlertOperation } from './alertZodSchemas.js';
 
 export class AlertHandler extends ResourceHandler<LMAlert> {
-  constructor(
-    client: LogicMonitorClient,
-    sessionManager: SessionManager,
-    sessionId?: string
-  ) {
+  constructor(client: LogicMonitorClient, sessionManager: SessionManager, sessionId?: string) {
     super(
-      {
-        resourceType: 'alert',
-        resourceName: 'alert',
-        idField: 'id'
-      },
+      { resourceType: 'alert', resourceName: 'alert', idField: 'id' },
       client,
       sessionManager,
       sessionId
@@ -41,7 +29,7 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
   }
 
   protected async handleList(args: ListOperationArgs): Promise<OperationResult<LMAlert>> {
-    const validated = validateListAlerts(args);
+    const validated = validateAlertOperation({ ...args, operation: 'list' as const });
     const { fields, filter, size, offset, autoPaginate, sort, needMessage, customColumns } = validated;
     const fieldConfig = sanitizeFields('alert', fields);
 
@@ -66,7 +54,7 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
     const result: OperationResult<LMAlert> = {
       success: true,
       total: apiResult.total,
-      items: apiResult.items as LMAlert[],
+      items: apiResult.items as unknown as LMAlert[],
       request: {
         filter,
         size,
@@ -87,8 +75,8 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
   }
 
   protected async handleGet(args: GetOperationArgs): Promise<OperationResult<LMAlert>> {
-    const validated = validateGetAlert(args);
-    const alertId = validated.id ?? this.resolveId(validated);
+    const validated = validateAlertOperation({ ...args, operation: 'get' as const });
+    const alertId = validated.id ?? validated.alertId;
     
     if (!alertId) {
       throw new McpError(ErrorCode.InvalidParams, 'Alert ID is required');
@@ -106,7 +94,7 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
 
     this.storeInSession('get', result);
     this.sessionManager.recordOperation(this.sessionContext.id, 'alert', 'get', result);
-    this.sessionManager.cacheResource(this.sessionContext.id, 'alert', alertId, apiResult.data);
+    this.sessionManager.cacheResource(this.sessionContext.id, 'alert', String(alertId), apiResult.data);
 
     return result;
   }
@@ -116,11 +104,14 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
   }
 
   protected async handleUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMAlert>> {
-    const validated = validateUpdateAlert(args);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const action = (validated as any).action;
+    const validated = validateAlertOperation({ ...args, operation: 'update' as const });
+    const action = validated.action;
     
-    const alertId = validated.id ?? this.resolveId(validated);
+    if (!action) {
+      throw new McpError(ErrorCode.InvalidParams, 'action is required for update operation');
+    }
+    
+    const alertId = validated.id ?? validated.alertId;
     if (!alertId) {
       throw new McpError(ErrorCode.InvalidParams, 'Alert ID is required');
     }
@@ -128,12 +119,16 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
     let apiResult;
     switch (action) {
       case 'ack':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        apiResult = await this.client.ackAlert(String(alertId), (validated as any).ackComment || '');
+        if (!validated.ackComment) {
+          throw new McpError(ErrorCode.InvalidParams, 'ackComment is required for ack action');
+        }
+        apiResult = await this.client.ackAlert(String(alertId), validated.ackComment);
         break;
       case 'note':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        apiResult = await this.client.addAlertNote(String(alertId), (validated as any).note || '');
+        if (!validated.note) {
+          throw new McpError(ErrorCode.InvalidParams, 'note is required for note action');
+        }
+        apiResult = await this.client.addAlertNote(String(alertId), validated.note);
         break;
       case 'escalate':
         apiResult = await this.client.escalateAlert(String(alertId));
@@ -144,8 +139,7 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
 
     const result: OperationResult<LMAlert> = {
       success: true,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: { alertId, action } as any,
+      data: { alertId, action } as unknown as LMAlert,
       raw: apiResult.raw,
       meta: apiResult.meta
     };
@@ -160,4 +154,3 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
     throw new McpError(ErrorCode.InvalidRequest, 'Alert deletion is not supported via API');
   }
 }
-

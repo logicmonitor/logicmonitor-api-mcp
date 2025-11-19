@@ -4,8 +4,8 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
-import { BatchOperationResolver } from '../base/BatchResolver.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
+import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -27,7 +27,7 @@ import {
   validateCreateCollectorGroup,
   validateUpdateCollectorGroup,
   validateDeleteCollectorGroup
-} from './collectorGroupSchemas.js';
+} from './collectorGroupZodSchemas.js';
 
 export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
   constructor(
@@ -130,7 +130,8 @@ export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMCollectorGroup>> {
     const validated = validateCreateCollectorGroup(args);
     const isBatch = this.isBatchCreate(validated);
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const groupsInput = this.normalizeCreateInput(validated);
 
     const batchResult = await batchProcessor.processBatch(
@@ -257,7 +258,7 @@ export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
       throw new McpError(ErrorCode.InvalidParams, 'Collector group ID must be a number');
     }
 
-    const updates = { ...validated };
+    const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
     delete updates.id;
     delete updates.groupId;

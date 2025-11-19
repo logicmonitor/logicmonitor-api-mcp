@@ -3,8 +3,8 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
-import { BatchOperationResolver } from '../base/BatchResolver.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
+import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -25,7 +25,7 @@ import {
   validateCreateDeviceGroup,
   validateUpdateDeviceGroup,
   validateDeleteDeviceGroup
-} from './deviceGroupSchemas.js';
+} from './deviceGroupZodSchemas.js';
 
 export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
   constructor(
@@ -129,7 +129,8 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
     const validated = validateCreateDeviceGroup(args);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isBatch = !!((validated as any).groups && Array.isArray((validated as any).groups));
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupsInput = isBatch ? (validated as any).groups : [validated];
 

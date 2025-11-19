@@ -1,4 +1,4 @@
-import swaggerDocument from '../../docs/swagger.json' with { type: 'json' };
+import swaggerDocument from '../schemas/swagger.json' with { type: 'json' };
 import { parseFieldList } from './fieldSelection.js';
 
 export type ResourceKey = 'device' | 'deviceGroup' | 'collector' | 'website' | 'websiteGroup' | 'alert' | 'user' | 'dashboard' | 'collectorGroup' | 'deviceDatasource' | 'deviceDatasourceInstance';

@@ -2,7 +2,7 @@
  * MCP Prompts for LogicMonitor workflows
  */
 
-import { Prompt } from '@modelcontextprotocol/sdk/types.js';
+import { Prompt } from '@socotra/modelcontextprotocol-sdk/types.js';
 
 /**
  * Export Device Metrics Prompt

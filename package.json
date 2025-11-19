@@ -13,6 +13,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "inspector": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "generate:schemas": "orval",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
@@ -21,6 +22,7 @@
     "test:headers": "node tests/test-headers.js",
     "test:session": "node tests/test-session.js",
     "test:filters": "node tests/test-filters.js",
+    "test:mcp": "node test-mcp-server.js",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [
@@ -54,6 +56,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.2",
+    "@socotra/modelcontextprotocol-sdk": "^1.22.0-next.1",
     "@types/jest": "^30.0.0",
     "axios": "^1.9.0",
     "dotenv": "^17.2.3",
@@ -62,7 +65,8 @@
     "joi": "^18.0.2",
     "ts-jest": "^29.4.5",
     "typescript-eslint": "^8.47.0",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/express": "^5.0.2",
@@ -71,6 +75,7 @@
     "@typescript-eslint/parser": "^8.32.1",
     "eslint": "^9.39.1",
     "jest": "^30.2.0",
+    "orval": "^8.0.0-rc.2",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

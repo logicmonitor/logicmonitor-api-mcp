@@ -4,8 +4,8 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
-import { BatchOperationResolver } from '../base/BatchResolver.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
+import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -27,7 +27,7 @@ import {
   validateCreateDevice,
   validateUpdateDevice,
   validateDeleteDevice
-} from './deviceSchemas.js';
+} from './deviceZodSchemas.js';
 
 export class DeviceHandler extends ResourceHandler<LMDevice> {
   constructor(
@@ -147,7 +147,8 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMDevice>> {
     const validated = validateCreateDevice(args);
     const isBatch = this.isBatchCreate(validated);
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const devicesInput = this.normalizeCreateInput(validated);
 
     const batchResult = await batchProcessor.processBatch(

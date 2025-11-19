@@ -6,7 +6,7 @@
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // Verify required environment variables
 const requiredEnvVars = ['LM_ACCOUNT', 'LM_BEARER_TOKEN'];

@@ -1,6 +1,6 @@
 # LogicMonitor MCP Server - Test Suite
 
-This directory contains the comprehensive test suite for the LogicMonitor MCP server. Tests are written using Jest and TypeScript, with full integration testing against a live LogicMonitor portal.
+This directory contains the test suite for the LogicMonitor MCP server. Tests are written using Jest and TypeScript, with full integration testing against a live LogicMonitor portal.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This directory contains the comprehensive test suite for the LogicMonitor MCP se
 
 ## Prerequisites
 
-1. **Node.js**: Version 18.x or 20.x
+1. **Node.js**: Version 22.x or 24.x
 2. **LogicMonitor Account**: Active account with API access
 3. **API Credentials**: Bearer token with appropriate permissions
 4. **Test Resources**: At least one active collector in your portal

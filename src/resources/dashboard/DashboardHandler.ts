@@ -4,8 +4,8 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
-import { BatchOperationResolver } from '../base/BatchResolver.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
+import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -21,13 +21,7 @@ import type {
   OperationResult
 } from '../../types/operations.js';
 import type { BatchResult, BatchItem } from '../../utils/batchProcessor.js';
-import {
-  validateListDashboards,
-  validateGetDashboard,
-  validateCreateDashboard,
-  validateUpdateDashboard,
-  validateDeleteDashboard
-} from './dashboardSchemas.js';
+import { validateDashboardOperation } from './dashboardZodSchemas.js';
 
 export class DashboardHandler extends ResourceHandler<LMDashboard> {
   constructor(
@@ -48,7 +42,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
   }
 
   protected async handleList(args: ListOperationArgs): Promise<OperationResult<LMDashboard>> {
-    const validated = validateListDashboards(args);
+    const validated = validateDashboardOperation(args) as Extract<ReturnType<typeof validateDashboardOperation>, { operation: 'list' }>;
     const { fields, filter, size, offset, autoPaginate } = validated;
     const fieldConfig = sanitizeFields('dashboard', fields);
 
@@ -88,7 +82,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
   }
 
   protected async handleGet(args: GetOperationArgs): Promise<OperationResult<LMDashboard>> {
-    const validated = validateGetDashboard(args);
+    const validated = validateDashboardOperation(args) as Extract<ReturnType<typeof validateDashboardOperation>, { operation: 'get' }>;
     const dashboardId = validated.id ?? this.resolveId(validated);
     
     if (typeof dashboardId !== 'number') {
@@ -128,9 +122,10 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
   }
 
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMDashboard>> {
-    const validated = validateCreateDashboard(args);
+    const validated = validateDashboardOperation(args) as Extract<ReturnType<typeof validateDashboardOperation>, { operation: 'create' }>;
     const isBatch = this.isBatchCreate(validated);
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const dashboardsInput = this.normalizeCreateInput(validated);
 
     const batchResult = await batchProcessor.processBatch(
@@ -191,9 +186,10 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
   }
 
   protected async handleUpdate(args: UpdateOperationArgs): Promise<OperationResult<LMDashboard>> {
-    const validated = validateUpdateDashboard(args);
+    const validated = validateDashboardOperation(args) as Extract<ReturnType<typeof validateDashboardOperation>, { operation: 'update' }>;
     const isBatch = BatchOperationResolver.isBatchOperation(validated, 'dashboards');
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
 
     if (isBatch) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,7 +253,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
       throw new McpError(ErrorCode.InvalidParams, 'Dashboard ID must be a number');
     }
 
-    const updates = { ...validated };
+    const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
     delete updates.id;
     delete updates.dashboardId;
@@ -278,10 +274,11 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
   }
 
   protected async handleDelete(args: DeleteOperationArgs): Promise<OperationResult<LMDashboard>> {
-    const validated = validateDeleteDashboard(args);
+    const validated = validateDashboardOperation(args) as Extract<ReturnType<typeof validateDashboardOperation>, { operation: 'delete' }>;
     const isBatch = BatchOperationResolver.isBatchOperation(validated, 'dashboards') || 
                      (validated.ids && Array.isArray(validated.ids));
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
 
     if (isBatch) {
       let itemsToDelete: Array<Record<string, unknown>>;
@@ -378,6 +375,14 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
       meta: entry.meta,
       raw: entry.raw
     }));
+  }
+
+  protected resolveId(args: Record<string, unknown>): number {
+    const id = (args.id ?? args.dashboardId) as number | undefined;
+    if (!id) {
+      throw new McpError(ErrorCode.InvalidParams, 'Dashboard ID is required');
+    }
+    return id;
   }
 }
 

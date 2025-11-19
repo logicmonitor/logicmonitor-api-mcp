@@ -1,34 +1,43 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
 import {
   CallToolRequestSchema,
-  ListToolsRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
   TextContent,
   ErrorCode,
   McpError
-} from '@modelcontextprotocol/sdk/types.js';
+} from '@socotra/modelcontextprotocol-sdk/types.js';
 import winston from 'winston';
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from './appInfo.js';
 import { LogicMonitorClient } from './api/client.js';
 import { LogicMonitorApiError } from './api/errors.js';
-import { resourceTools } from './tools/resourceTools.js';
 import { listPrompts, getPrompt, getPromptContent } from './tools/prompts.js';
 import { SessionManager } from './session/sessionManager.js';
 import { metricsManager } from './metrics/metricsManager.js';
 import { getKnownFields, ResourceKey } from './utils/fieldMetadata.js';
-import { DeviceHandler } from './resources/device/DeviceHandler.js';
-import { DeviceGroupHandler } from './resources/deviceGroup/DeviceGroupHandler.js';
-import { AlertHandler } from './resources/alert/AlertHandler.js';
-import { WebsiteHandler } from './resources/website/WebsiteHandler.js';
-import { WebsiteGroupHandler } from './resources/websiteGroup/WebsiteGroupHandler.js';
-import { CollectorHandler } from './resources/collector/CollectorHandler.js';
-import { UserHandler } from './resources/user/UserHandler.js';
-import { DashboardHandler } from './resources/dashboard/DashboardHandler.js';
-import { CollectorGroupHandler } from './resources/collectorGroup/CollectorGroupHandler.js';
-import { DeviceDataHandler } from './resources/deviceData/DeviceDataHandler.js';
-import { SessionHandler } from './resources/session/SessionHandler.js';
+import { DeviceHandler } from './resources/device/deviceHandler.js';
+import { DeviceGroupHandler } from './resources/deviceGroup/deviceGroupHandler.js';
+import { AlertHandler } from './resources/alert/alertHandler.js';
+import { WebsiteHandler } from './resources/website/websiteHandler.js';
+import { WebsiteGroupHandler } from './resources/websiteGroup/websiteGroupHandler.js';
+import { CollectorHandler } from './resources/collector/collectorHandler.js';
+import { UserHandler } from './resources/user/userHandler.js';
+import { DashboardHandler } from './resources/dashboard/dashboardHandler.js';
+import { CollectorGroupHandler } from './resources/collectorGroup/collectorGroupHandler.js';
+import { DeviceDataHandler } from './resources/deviceData/deviceDataHandler.js';
+import { SessionHandler } from './resources/session/sessionHandler.js';
 import type { ResourceType } from './types/operations.js';
+import { registerAlertTool } from './tools/alert/registerAlertTool.js';
+import { registerCollectorTool } from './tools/collector/registerCollectorTool.js';
+import { registerDeviceGroupTool } from './tools/deviceGroup/registerDeviceGroupTool.js';
+import { registerDeviceTool } from './tools/device/registerDeviceTool.js';
+import { registerWebsiteTool } from './tools/website/registerWebsiteTool.js';
+import { registerWebsiteGroupTool } from './tools/websiteGroup/registerWebsiteGroupTool.js';
+import { registerUserTool } from './tools/user/registerUserTool.js';
+import { registerDashboardTool } from './tools/dashboard/registerDashboardTool.js';
+import { registerCollectorGroupTool } from './tools/collectorGroup/registerCollectorGroupTool.js';
+import { registerDeviceDataTool } from './tools/deviceData/registerDeviceDataTool.js';
+import { registerSessionTool } from './tools/session/registerSessionTool.js';
 
 export interface ServerConfig {
   name?: string;
@@ -232,6 +241,151 @@ export async function createServer(config: ServerConfig = {}) {
     prompts: {}
   });
 
+  // Register alert tool using high-level API
+  registerAlertTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new AlertHandler(client, sessionManager);
+  });
+
+  // Register collector tool using high-level API
+  registerCollectorTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new CollectorHandler(client, sessionManager);
+  });
+
+  // Register device group tool using high-level API
+  registerDeviceGroupTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new DeviceGroupHandler(client, sessionManager);
+  });
+
+  // Register device tool using high-level API
+  registerDeviceTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new DeviceHandler(client, sessionManager);
+  });
+
+  // Register website tool using high-level API
+  registerWebsiteTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new WebsiteHandler(client, sessionManager);
+  });
+
+  // Register website group tool using high-level API
+  registerWebsiteGroupTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new WebsiteGroupHandler(client, sessionManager);
+  });
+
+  // Register user tool using high-level API
+  registerUserTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new UserHandler(client, sessionManager);
+  });
+
+  // Register dashboard tool using high-level API
+  registerDashboardTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new DashboardHandler(client, sessionManager);
+  });
+
+  // Register collector group tool using high-level API
+  registerCollectorGroupTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new CollectorGroupHandler(client, sessionManager);
+  });
+
+  // Register device data tool using high-level API
+  registerDeviceDataTool(mcpServer, () => {
+    const credentials = config.credentials || {};
+    const { lm_account, lm_bearer_token } = credentials;
+    if (!lm_account || !lm_bearer_token) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    return new DeviceDataHandler(client, sessionManager);
+  });
+
+  // Register session tool using high-level API
+  registerSessionTool(mcpServer, () => {
+    return new SessionHandler(sessionManager);
+  });
+
   mcpServer.server.oninitialized = () => {
     logger.info('MCP session initialized');
   };
@@ -267,13 +421,7 @@ export async function createServer(config: ServerConfig = {}) {
   };
 
 
-  const allTools = [
-    ...resourceTools
-  ];
 
-  mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: allTools
-  }));
 
   mcpServer.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
     prompts: listPrompts()
@@ -445,7 +593,7 @@ export async function createServer(config: ServerConfig = {}) {
       case 'deviceData':
         return new DeviceDataHandler(client, sessionManager, sessionId);
       case 'session':
-        return new SessionHandler(client, sessionManager, sessionId);
+        return new SessionHandler(sessionManager, sessionId);
       default:
         throw new McpError(
           ErrorCode.MethodNotFound,

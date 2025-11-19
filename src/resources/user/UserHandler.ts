@@ -4,8 +4,8 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
-import { BatchOperationResolver } from '../base/BatchResolver.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
+import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -27,7 +27,7 @@ import {
   validateCreateUser,
   validateUpdateUser,
   validateDeleteUser
-} from './userSchemas.js';
+} from './userZodSchemas.js';
 
 export class UserHandler extends ResourceHandler<LMUser> {
   constructor(
@@ -130,7 +130,8 @@ export class UserHandler extends ResourceHandler<LMUser> {
   protected async handleCreate(args: CreateOperationArgs): Promise<OperationResult<LMUser>> {
     const validated = validateCreateUser(args);
     const isBatch = this.isBatchCreate(validated);
-    const batchOptions = BatchOperationResolver.extractBatchOptions(validated);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const usersInput = this.normalizeCreateInput(validated);
 
     const batchResult = await batchProcessor.processBatch(
@@ -257,7 +258,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
       throw new McpError(ErrorCode.InvalidParams, 'User ID must be a number');
     }
 
-    const updates = { ...validated };
+    const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
     delete updates.id;
     delete updates.userId;

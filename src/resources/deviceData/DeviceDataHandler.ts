@@ -4,7 +4,7 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { batchProcessor } from '../../utils/batchProcessor.js';
@@ -20,7 +20,7 @@ import {
   validateListDatasources,
   validateListInstances,
   validateGetData
-} from './deviceDataSchemas.js';
+} from './deviceDataZodSchemas.js';
 
 interface DeviceDataOperationArgs {
   operation: 'list_datasources' | 'list_instances' | 'get_data';
@@ -187,17 +187,17 @@ export class DeviceDataHandler extends ResourceHandler<DeviceDataType> {
     let endEpoch: number;
 
     if (startDate) {
-      startEpoch = Math.floor(new Date(startDate).getTime() / 1000);
+      startEpoch = typeof startDate === 'string' ? Math.floor(new Date(startDate).getTime() / 1000) : startDate;
     } else if (start) {
-      startEpoch = start;
+      startEpoch = typeof start === 'string' ? Math.floor(new Date(start).getTime() / 1000) : start;
     } else {
       startEpoch = defaultStart;
     }
 
     if (endDate) {
-      endEpoch = Math.floor(new Date(endDate).getTime() / 1000);
+      endEpoch = typeof endDate === 'string' ? Math.floor(new Date(endDate).getTime() / 1000) : endDate;
     } else if (end) {
-      endEpoch = end;
+      endEpoch = typeof end === 'string' ? Math.floor(new Date(end).getTime() / 1000) : end;
     } else {
       endEpoch = now;
     }

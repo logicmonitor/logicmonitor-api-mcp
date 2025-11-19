@@ -3,7 +3,7 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { ResourceHandler } from '../base/ResourceHandler.js';
+import { ResourceHandler } from '../base/resourceHandler.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
@@ -16,7 +16,7 @@ import type {
   DeleteOperationArgs,
   OperationResult
 } from '../../types/operations.js';
-import { validateListCollectors } from './collectorSchemas.js';
+import { validateListCollectors } from './collectorZodSchemas.js';
 
 export class CollectorHandler extends ResourceHandler<LMCollector> {
   constructor(client: LogicMonitorClient, sessionManager: SessionManager, sessionId?: string) {

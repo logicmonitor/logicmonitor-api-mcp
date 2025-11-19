@@ -2,6 +2,10 @@
 
 # LogicMonitor MCP Server
 
+> **⚠️ Community Project Disclaimer**
+> 
+> This is an open-source community project and is **not officially supported by LogicMonitor**. While hosted in the LogicMonitor github organization, support is provided on an "as-is" basis through GitHub issues and community contributions. For questions, bug reports, or feature requests, please open an issue on this repository.
+
 A Model Context Protocol (MCP) server that provides secure access to the LogicMonitor API, enabling AI assistants to manage monitoring infrastructure through natural language commands.
 
 ## Features
@@ -19,7 +23,7 @@ A Model Context Protocol (MCP) server that provides secure access to the LogicMo
 
 - All tools now return the full LogicMonitor API payload (`raw`) together with request metadata so downstream agents never lose fields that the API exposes.
 - When specifying the optional `fields` parameter, only LogicMonitor-supported field names are accepted. Invalid field names trigger a `InvalidParams` error to prevent silent data loss or filtering mistakes.
-- Use `*` (or omit `fields`) to request the complete object. The `docs/swagger.json` file shipped with the project contains the authoritative schema for each resource if you need to look up the available fields.
+-  The `src/schemas/swagger.json` file shipped with the project contains the authoritative schema for each resource if you need to look up the available fields.
 - Responses always include:
   - `items` / `device`, etc. – parsed data objects for convenience
   - `raw` – the exact API payload
@@ -46,9 +50,6 @@ npm install
 
 # Build the project
 npm run build
-
-# Optional: Link globally
-npm link
 ```
 
 ## Configuration
@@ -149,7 +150,7 @@ When no `X-LM-*` headers are provided, the server falls back to `LM_ACCOUNT` and
 
 ## Available Tools
 
-The server provides **10 resource-based tools** that handle all CRUD operations through an `operation` parameter:
+The server provides **resource-based tools** that handle all CRUD operations through an `operation` parameter:
 
 ### Core Resource Tools
 
@@ -231,12 +232,14 @@ Key features:
 - Flexible time ranges (ISO 8601 dates or Unix epochs, defaults to last 24 hours)
 - Formatted output with timestamps and metric values
 
-### Session Utilities
-- `lm_get_session_context` - View stored variables, last results, and recent history
-- `lm_set_session_variable` - Persist custom key/value pairs across tool calls
-- `lm_get_session_variable` - Retrieve stored session values
-- `lm_clear_session_context` - Reset session state
-- `lm_list_session_history` - Inspect recent tool invocations
+#### `lm_session`
+Manage session context and variables:
+- **set_variable** - Store a value in the session (useful for batch operations with applyToPrevious)
+- **get_variable** - Retrieve a stored session variable
+- **list_variables** - List all session variables
+- **clear_variables** - Clear all session variables
+- **get_context** - Get current session context (ID, variables, cached resources)
+- **get_history** - Get operation history (recent API calls and results)
 
 ## Available Prompts
 

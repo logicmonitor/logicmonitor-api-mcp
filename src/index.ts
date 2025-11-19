@@ -5,14 +5,14 @@ import express from 'express';
 import helmet from 'helmet';
 import winston from 'winston';
 import { createServer } from './server.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { StdioServerTransport } from '@socotra/modelcontextprotocol-sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@socotra/modelcontextprotocol-sdk/server/streamableHttp.js';
 import { randomUUID } from 'crypto';
 import { APP_INFO } from './appInfo.js';
 import { SessionManager } from './session/sessionManager.js';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const NODE_ENV = process.env.NODE_ENV || 'development';
