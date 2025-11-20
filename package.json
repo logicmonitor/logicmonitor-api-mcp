@@ -61,8 +61,10 @@
     "axios": "^1.9.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "joi": "^18.0.2",
+    "jose": "^6.1.2",
     "ts-jest": "^29.4.5",
     "typescript-eslint": "^8.47.0",
     "winston": "^3.17.0",
@@ -70,12 +72,16 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^24.10.1",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
     "@typescript-eslint/parser": "^8.32.1",
     "eslint": "^9.39.1",
     "jest": "^30.2.0",
     "orval": "^8.0.0-rc.2",
+    "supertest": "^7.0.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

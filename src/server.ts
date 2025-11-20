@@ -47,6 +47,8 @@ export interface ServerConfig {
     lm_account?: string;
     lm_bearer_token?: string;
   };
+  clientId?: string;
+  authMode?: 'none' | 'bearer' | 'oauth';
   instructions?: string;
   sessionManager?: SessionManager;
 }

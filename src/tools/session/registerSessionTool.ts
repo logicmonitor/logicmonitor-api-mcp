@@ -19,21 +19,44 @@ export function registerSessionTool(
     'lm_session',
     {
       title: 'LogicMonitor Session Management',
-      description: `Manage session state, variables, and operation history. Supports the following operations:
-- set_variable: Store a value in the session (useful for batch operations with applyToPrevious)
-- get_variable: Retrieve a stored session variable
-- list_variables: List all session variables
-- clear_variables: Clear all session variables
-- get_context: Get current session context (ID, variables, cached resources)
-- get_history: Get operation history (recent API calls and results)
+      description: `Manage session state, variables, and operation history.
 
-Session variables are commonly used with batch operations:
-1. List resources and store in a variable
-2. Use applyToPrevious to reference the variable in subsequent operations
+OPERATIONS:
 
-Example workflow:
-- List devices with filter and store results
-- Update all devices from previous operation using applyToPrevious`,
+1. list - Get session history
+   Parameters: limit (optional, 1-50, default 10)
+   Returns: Recent tool calls and available session data
+
+2. get - Get session context or specific variable
+   Parameters: 
+   - key (optional): Variable name to retrieve. If omitted, returns full session context
+   - historyLimit (optional, 1-50): Number of history entries to include
+   - includeResults (optional, boolean): Include full result objects
+   Returns: Variable value or full session context
+
+3. create - Store a new session variable
+   Parameters: key (required), value (required)
+   Returns: Confirmation with list of stored variables
+   Use for: Storing results for batch operations with applyToPrevious
+
+4. update - Update an existing session variable
+   Parameters: key (required), value (required)
+   Returns: Confirmation with list of stored variables
+
+5. delete - Clear session data
+   Parameters: scope (optional: 'variables' | 'history' | 'results' | 'all', default 'all')
+   Returns: Confirmation with remaining data counts
+
+COMMON WORKFLOWS:
+
+Store results for batch operations:
+- Use operation: "create" with key and value to store data
+- Reference stored data in other tools using applyToPrevious
+
+Example:
+1. lm_device with operation: "list" and filter
+2. lm_session with operation: "create", key: "myDevices", value: <results>
+3. lm_device with operation: "update", applyToPrevious: "myDevices"`,
       inputSchema: SessionOperationArgsSchema
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

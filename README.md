@@ -233,13 +233,35 @@ Key features:
 - Formatted output with timestamps and metric values
 
 #### `lm_session`
-Manage session context and variables:
-- **set_variable** - Store a value in the session (useful for batch operations with applyToPrevious)
-- **get_variable** - Retrieve a stored session variable
-- **list_variables** - List all session variables
-- **clear_variables** - Clear all session variables
-- **get_context** - Get current session context (ID, variables, cached resources)
-- **get_history** - Get operation history (recent API calls and results)
+Manage session context and variables using standard CRUD operations:
+
+**Operations:**
+- **list** - Get session history (recent tool calls)
+  - Parameters: `limit` (optional, 1-50)
+- **get** - Get session context or specific variable
+  - Parameters: `key` (optional - if omitted, returns full context), `historyLimit`, `includeResults`
+- **create** - Store a new session variable
+  - Parameters: `key` (required), `value` (required)
+  - Use for storing results for batch operations with applyToPrevious
+- **update** - Update an existing session variable
+  - Parameters: `key` (required), `value` (required)
+- **delete** - Clear session data
+  - Parameters: `scope` (optional: 'variables', 'history', 'results', or 'all')
+
+**Example Usage:**
+```json
+// Store devices for batch operations
+{ "operation": "create", "key": "myDevices", "value": [...] }
+
+// Get a stored variable
+{ "operation": "get", "key": "myDevices" }
+
+// View session history
+{ "operation": "list", "limit": 10 }
+
+// Clear all session data
+{ "operation": "delete", "scope": "all" }
+```
 
 ## Available Prompts
 
