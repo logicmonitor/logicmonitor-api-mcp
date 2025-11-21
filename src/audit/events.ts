@@ -22,7 +22,7 @@ export interface BaseAuditEvent {
 export interface AuthEvent extends BaseAuditEvent {
   event: 'auth_success' | 'auth_failure';
   clientId?: string;
-  authMode: 'none' | 'bearer' | 'oauth';
+  authMode: 'none' | 'bearer';
   error?: string;
   ipAddress?: string;
 }
@@ -31,7 +31,7 @@ export interface SessionEvent extends BaseAuditEvent {
   event: 'session_created' | 'session_closed';
   sessionId: string;
   clientId: string;
-  authMode: 'none' | 'bearer' | 'oauth';
+  authMode: 'none' | 'bearer';
   reason?: string;
 }
 
@@ -39,7 +39,7 @@ export interface ToolCallEvent extends BaseAuditEvent {
   event: 'tool_call' | 'tool_error';
   sessionId?: string;
   clientId: string;
-  authMode: 'none' | 'bearer' | 'oauth';
+  authMode: 'none' | 'bearer';
   tool: string;
   operation?: string;
   success: boolean;

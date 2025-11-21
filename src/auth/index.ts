@@ -8,12 +8,11 @@ import type { AuthValidator, AuthResult, AuthContext } from './types.js';
 import { CredentialMapper } from './credentialMapper.js';
 import { NoneAuthValidator } from './none.js';
 import { BearerAuthValidator } from './bearer.js';
-import { OAuthValidator } from './oauth.js';
 
 export class AuthManager {
   private validator: AuthValidator;
   private credentialMapper: CredentialMapper;
-  private authMode: 'none' | 'bearer' | 'oauth';
+  private authMode: 'none' | 'bearer';
 
   constructor(config: Config) {
     this.authMode = config.auth.mode;
@@ -35,10 +34,6 @@ export class AuthManager {
         );
         break;
       
-      case 'oauth':
-        this.validator = new OAuthValidator(config, this.credentialMapper);
-        break;
-      
       default:
         throw new Error(`Unknown auth mode: ${this.authMode}`);
     }
@@ -55,7 +50,7 @@ export class AuthManager {
       return this.validator.validate('');
     }
 
-    // For bearer and oauth modes, auth header is required
+    // For bearer mode, auth header is required
     if (!authHeader) {
       return {
         success: false,
@@ -79,7 +74,13 @@ export class AuthManager {
    * Create auth context from auth result
    */
   createContext(result: AuthResult): AuthContext | null {
-    if (!result.success || !result.clientId || !result.credentials) {
+    if (!result.success || !result.clientId) {
+      return null;
+    }
+
+    // Credentials may come from auth result (credential mapping) or from headers (handled by middleware)
+    // If no credentials in result, return null - middleware will handle this case
+    if (!result.credentials) {
       return null;
     }
 
@@ -93,7 +94,7 @@ export class AuthManager {
   /**
    * Get auth mode
    */
-  getAuthMode(): 'none' | 'bearer' | 'oauth' {
+  getAuthMode(): 'none' | 'bearer' {
     return this.authMode;
   }
 
@@ -121,5 +122,4 @@ export type { AuthResult, AuthContext, AuthValidator } from './types.js';
 export { CredentialMapper } from './credentialMapper.js';
 export { NoneAuthValidator } from './none.js';
 export { BearerAuthValidator } from './bearer.js';
-export { OAuthValidator } from './oauth.js';
 

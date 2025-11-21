@@ -52,7 +52,7 @@ export class AuditLogger {
   /**
    * Log authentication success
    */
-  logAuthSuccess(clientId: string, authMode: 'none' | 'bearer' | 'oauth', ipAddress?: string, requestId?: string): void {
+  logAuthSuccess(clientId: string, authMode: 'none' | 'bearer', ipAddress?: string, requestId?: string): void {
     this.log({
       timestamp: new Date().toISOString(),
       event: 'auth_success',
@@ -66,7 +66,7 @@ export class AuditLogger {
   /**
    * Log authentication failure
    */
-  logAuthFailure(authMode: 'none' | 'bearer' | 'oauth', error: string, ipAddress?: string, requestId?: string): void {
+  logAuthFailure(authMode: 'none' | 'bearer', error: string, ipAddress?: string, requestId?: string): void {
     this.log({
       timestamp: new Date().toISOString(),
       event: 'auth_failure',
@@ -80,7 +80,7 @@ export class AuditLogger {
   /**
    * Log session creation
    */
-  logSessionCreated(sessionId: string, clientId: string, authMode: 'none' | 'bearer' | 'oauth', requestId?: string): void {
+  logSessionCreated(sessionId: string, clientId: string, authMode: 'none' | 'bearer', requestId?: string): void {
     this.log({
       timestamp: new Date().toISOString(),
       event: 'session_created',
@@ -94,7 +94,7 @@ export class AuditLogger {
   /**
    * Log session closure
    */
-  logSessionClosed(sessionId: string, clientId: string, authMode: 'none' | 'bearer' | 'oauth', reason?: string, requestId?: string): void {
+  logSessionClosed(sessionId: string, clientId: string, authMode: 'none' | 'bearer', reason?: string, requestId?: string): void {
     this.log({
       timestamp: new Date().toISOString(),
       event: 'session_closed',
@@ -111,7 +111,7 @@ export class AuditLogger {
    */
   logToolCall(
     clientId: string,
-    authMode: 'none' | 'bearer' | 'oauth',
+    authMode: 'none' | 'bearer',
     tool: string,
     operation: string | undefined,
     success: boolean,

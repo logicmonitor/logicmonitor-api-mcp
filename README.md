@@ -148,6 +148,46 @@ Then connect without credentials in headers:
 
 When no `X-LM-*` headers are provided, the server falls back to `LM_ACCOUNT` and `LM_BEARER_TOKEN` environment variables that were set when the process started.
 
+### Authentication
+
+The server supports two auth modes (`AUTH_MODE`):
+
+- `none` (default): No MCP client authentication. Only safe for STDIO transport or trusted networks.
+- `bearer`: Static bearer token authentication. Clients send `Authorization: Bearer <token>`.
+
+**LogicMonitor Credentials** are resolved in priority order:
+1. **X-LM-Account + X-LM-Bearer-Token headers** (highest priority, per-request override)
+2. **AUTH_CREDENTIAL_MAPPING** (maps bearer token/clientId to LM credentials)
+3. **LM_ACCOUNT + LM_BEARER_TOKEN** (default fallback)
+
+**Bearer Token Configuration**
+```bash
+AUTH_MODE=bearer
+MCP_BEARER_TOKENS=token1,token2,token3
+
+# Option 1: Use per-request headers (most flexible)
+# Clients send X-LM-Account and X-LM-Bearer-Token headers with each request
+
+# Option 2: Map bearer tokens to LM credentials
+AUTH_CREDENTIAL_MAPPING='{"token1":{"account":"prod","token":"lm-xyz"},"token2":{"account":"dev","token":"lm-abc"}}'
+
+# Option 3: Use default credentials (fallback for all tokens)
+LM_ACCOUNT=default-account
+LM_BEARER_TOKEN=default-lm-token
+
+# Wildcard mapping (applies to any token not explicitly mapped)
+AUTH_CREDENTIAL_MAPPING='{"*":{"account":"shared","token":"lm-default"}}'
+```
+
+**Example: Bearer token with per-request credentials**
+```bash
+curl -H "Authorization: Bearer token1" \
+     -H "X-LM-Account: mycompany" \
+     -H "X-LM-Bearer-Token: my-lm-token" \
+     -H "Content-Type: application/json" \
+     https://your-server:3000/mcp
+```
+
 ## Available Tools
 
 The server provides **resource-based tools** that handle all CRUD operations through an `operation` parameter:

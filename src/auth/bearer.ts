@@ -24,15 +24,10 @@ export class BearerAuthValidator implements AuthValidator {
       };
     }
 
-    // Token is valid - get credentials
+    // Token is valid - get credentials from mapping (if available)
+    // Note: credentials can also be provided via X-LM-Account and X-LM-Bearer-Token headers
+    // which are handled by the middleware, so we don't fail if mapping is missing
     const credentials = this.credentialMapper.getCredentials(token);
-    
-    if (!credentials) {
-      return {
-        success: false,
-        error: 'No LogicMonitor credentials mapped for this token',
-      };
-    }
 
     return {
       success: true,

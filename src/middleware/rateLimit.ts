@@ -2,7 +2,7 @@
  * Per-client rate limiting middleware
  */
 
-import { rateLimit } from 'express-rate-limit';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import type { Request, Response, NextFunction } from 'express';
 import type { Config } from '../config/schema.js';
 
@@ -29,9 +29,11 @@ export function createRateLimitMiddleware(config: Config) {
         return `client:${authReq.auth.clientId}`;
       }
       
-      // Fall back to a safe default key for unauthenticated requests
-      // This avoids the IPv6 issue by not using req.ip directly
-      return 'unauthenticated';
+      // Fall back to IP-based key for unauthenticated requests
+      const forwardedFor = req.headers['x-forwarded-for'];
+      const ipHeader = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+      const ip = req.ip || ipHeader;
+      return ip ? `ip:${ipKeyGenerator(ip)}` : 'unauthenticated';
     },
     
     // Standard rate limit headers
@@ -48,4 +50,3 @@ export function createRateLimitMiddleware(config: Config) {
     skip: (req) => req.path === '/health',
   });
 }
-

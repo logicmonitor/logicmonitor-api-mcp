@@ -47,8 +47,9 @@ export interface ServerConfig {
     lm_account?: string;
     lm_bearer_token?: string;
   };
+  apiTimeoutMs?: number;
   clientId?: string;
-  authMode?: 'none' | 'bearer' | 'oauth';
+  authMode?: 'none' | 'bearer';
   instructions?: string;
   sessionManager?: SessionManager;
 }
@@ -253,7 +254,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new AlertHandler(client, sessionManager);
   });
 
@@ -267,7 +270,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new CollectorHandler(client, sessionManager);
   });
 
@@ -281,7 +286,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new DeviceGroupHandler(client, sessionManager);
   });
 
@@ -295,7 +302,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new DeviceHandler(client, sessionManager);
   });
 
@@ -309,7 +318,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new WebsiteHandler(client, sessionManager);
   });
 
@@ -323,7 +334,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new WebsiteGroupHandler(client, sessionManager);
   });
 
@@ -337,7 +350,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new UserHandler(client, sessionManager);
   });
 
@@ -351,7 +366,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new DashboardHandler(client, sessionManager);
   });
 
@@ -365,7 +382,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new CollectorGroupHandler(client, sessionManager);
   });
 
@@ -379,7 +398,9 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+      timeoutMs: config.apiTimeoutMs
+    });
     return new DeviceDataHandler(client, sessionManager);
   });
 
@@ -532,10 +553,14 @@ export async function createServer(config: ServerConfig = {}) {
             'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
           );
         }
-        client = new LogicMonitorClient(lm_account, lm_bearer_token, logger);
+        client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+          timeoutMs: config.apiTimeoutMs
+        });
       } else {
         // For session operations, create a dummy client (not used but required by handler signature)
-        client = new LogicMonitorClient('dummy', 'dummy', logger);
+        client = new LogicMonitorClient('dummy', 'dummy', logger, {
+          timeoutMs: config.apiTimeoutMs
+        });
       }
 
       const handler = createResourceHandler(resourceType, client, sessionManager, sessionId);

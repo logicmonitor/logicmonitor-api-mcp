@@ -76,14 +76,8 @@ export function loadConfig(): Config {
     },
 
     auth: {
-      mode: (process.env.AUTH_MODE || CONFIG_DEFAULTS.authMode) as 'none' | 'bearer' | 'oauth',
+      mode: (process.env.AUTH_MODE || CONFIG_DEFAULTS.authMode) as 'none' | 'bearer',
       bearerTokens: parseCommaSeparated(process.env.MCP_BEARER_TOKENS),
-      oauth: {
-        jwksUrl: process.env.OAUTH_JWKS_URL,
-        audience: process.env.OAUTH_AUDIENCE,
-        issuer: process.env.OAUTH_ISSUER,
-        requiredScopes: parseCommaSeparated(process.env.OAUTH_REQUIRED_SCOPES),
-      },
       credentialMapping: parseJSON<CredentialMapping>(
         process.env.AUTH_CREDENTIAL_MAPPING,
         {}
@@ -97,8 +91,6 @@ export function loadConfig(): Config {
     },
 
     security: {
-      corsEnabled: parseBoolean(process.env.CORS_ENABLED, CONFIG_DEFAULTS.corsEnabled),
-      corsOrigins: parseCommaSeparated(process.env.CORS_ORIGINS) || CONFIG_DEFAULTS.corsOrigins,
       rateLimitEnabled: parseBoolean(process.env.RATE_LIMIT_ENABLED, CONFIG_DEFAULTS.rateLimitEnabled),
       rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, CONFIG_DEFAULTS.rateLimitWindowMs),
       rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, CONFIG_DEFAULTS.rateLimitMaxRequests),
@@ -140,7 +132,7 @@ export function validateAndWarn(config: Config): void {
     warnings.push(
       'WARNING: HTTP transport is enabled without authentication (AUTH_MODE=none). ' +
       'This is insecure for production deployments. ' +
-      'Consider setting AUTH_MODE=bearer or AUTH_MODE=oauth.'
+      'Consider setting AUTH_MODE=bearer.'
     );
   }
 
@@ -186,4 +178,3 @@ export function getConfig(): Config {
 export function resetConfig(): void {
   configInstance = null;
 }
-

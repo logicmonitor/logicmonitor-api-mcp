@@ -14,13 +14,11 @@ export interface AuthResult {
 
 export interface AuthContext {
   clientId: string;
-  authMode: 'none' | 'bearer' | 'oauth';
+  authMode: 'none' | 'bearer';
   credentials: {
     lm_account: string;
     lm_bearer_token: string;
   };
-  scopes?: string[];
-  claims?: Record<string, unknown>;
 }
 
 export interface AuthValidator {

@@ -51,6 +51,10 @@ export interface ApiResult<T> {
   meta: LogicMonitorResponseMeta;
 }
 
+export interface LogicMonitorClientOptions {
+  timeoutMs?: number;
+}
+
 export interface ApiListResult<T> {
   items: T[];
   total: number;
@@ -88,13 +92,16 @@ export class LogicMonitorClient {
   constructor(
     account: string,
     bearerToken: string,
-    logger?: winston.Logger
+    logger?: winston.Logger,
+    options: LogicMonitorClientOptions = {}
   ) {
     this.logger = logger || winston.createLogger({
       level: 'info',
       format: winston.format.json(),
       transports: [new winston.transports.Console()]
     });
+
+    const timeout = options.timeoutMs ?? 30000;
 
     this.axiosInstance = axios.create({
       baseURL: `https://${account}.logicmonitor.com/santaba/rest`,
@@ -103,7 +110,7 @@ export class LogicMonitorClient {
         'Content-Type': 'application/json',
         'X-Version': '3'
       },
-      timeout: 30000
+      timeout
     });
 
     this.axiosInstance.interceptors.response.use(

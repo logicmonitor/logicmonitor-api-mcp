@@ -3,7 +3,6 @@
 import https from 'https';
 import fs from 'fs';
 import express from 'express';
-import helmet from 'helmet';
 import winston from 'winston';
 import { createServer } from './server.js';
 import { StdioServerTransport } from '@socotra/modelcontextprotocol-sdk/server/stdio.js';
@@ -14,7 +13,6 @@ import { SessionManager } from './session/sessionManager.js';
 import { getConfig } from './config/index.js';
 import { AuthManager } from './auth/index.js';
 import { createAuthMiddleware } from './auth/middleware.js';
-import { createCorsMiddleware } from './middleware/cors.js';
 import { createRequestIdMiddleware } from './middleware/requestId.js';
 import { createRateLimitMiddleware } from './middleware/rateLimit.js';
 import { AuditLogger } from './audit/logger.js';
@@ -56,23 +54,17 @@ async function startHttpServer() {
   // Initialize auth manager
   const authManager = new AuthManager(config);
 
-  // Security middleware
-  app.use(helmet());
-  
-  // CORS middleware
-  app.use(createCorsMiddleware(config));
-  
   // Request ID middleware
   app.use(createRequestIdMiddleware());
   
   // Parse JSON bodies
   app.use(express.json());
-  
-  // Rate limiting middleware (applied before auth)
-  app.use(createRateLimitMiddleware(config));
-  
+
   // Authentication middleware
   app.use(createAuthMiddleware(authManager));
+
+  // Rate limiting middleware (optional, disabled by default for trusted MCP clients)
+  app.use(createRateLimitMiddleware(config));
   
   // Health check endpoint
   app.get('/health', (_req, res) => {
@@ -88,12 +80,15 @@ async function startHttpServer() {
     transport: StreamableHTTPServerTransport;
     server: Awaited<ReturnType<typeof createServer>>;
     clientId: string;
+    credentialsKey: string;
     sessionId?: string;
     closed: boolean;
     sessionManager: SessionManager;
   };
 
   const sessions = new Map<string, HttpSessionContext>();
+  const buildCredentialsKey = (creds: { lm_account: string; lm_bearer_token: string }) =>
+    `${creds.lm_account}:${creds.lm_bearer_token}`;
 
   // Handle all MCP requests at /mcp endpoint
   app.all('/mcp', async (req, res): Promise<void> => {
@@ -105,6 +100,7 @@ async function startHttpServer() {
       }
 
       const { clientId, credentials } = req.auth;
+      const credentialsKey = buildCredentialsKey(credentials);
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
       let sessionContext: HttpSessionContext | undefined;
@@ -116,16 +112,29 @@ async function startHttpServer() {
           sessions.delete(sessionId);
           sessionContext = undefined;
         }
-        // Verify client ID matches
-        if (sessionContext && sessionContext.clientId !== clientId) {
-          auditLogger.logAuthFailure(
-            req.auth.authMode,
-            'Client ID mismatch for existing session',
-            req.ip,
-            req.requestId
-          );
-          res.status(403).json({ error: 'Client ID mismatch for existing MCP session.' });
-          return;
+        // Verify client ID and credentials match
+        if (sessionContext) {
+          if (sessionContext.clientId !== clientId) {
+            auditLogger.logAuthFailure(
+              req.auth.authMode,
+              'Client ID mismatch for existing session',
+              req.ip,
+              req.requestId
+            );
+            res.status(403).json({ error: 'Client ID mismatch for existing MCP session.' });
+            return;
+          }
+
+          if (sessionContext.credentialsKey !== credentialsKey) {
+            auditLogger.logAuthFailure(
+              req.auth.authMode,
+              'Credential mismatch for existing session',
+              req.ip,
+              req.requestId
+            );
+            res.status(403).json({ error: 'Credential mismatch for existing MCP session.' });
+            return;
+          }
         }
       }
 
@@ -140,7 +149,8 @@ async function startHttpServer() {
             contextRef.sessionId = newSessionId;
             sessions.set(newSessionId, contextRef);
             logger.info(`Session initialized: ${newSessionId} for client: ${clientId}`);
-            auditLogger.logSessionCreated(newSessionId, clientId, req.auth!.authMode, req.requestId);
+            const authMode = req.auth?.authMode || 'none';
+            auditLogger.logSessionCreated(newSessionId, clientId, authMode, req.requestId);
           },
           onsessionclosed: async (closedSessionId) => {
             await closeSession(`session closed request (${closedSessionId})`);
@@ -152,6 +162,7 @@ async function startHttpServer() {
           credentials,
           clientId,
           authMode: req.auth.authMode,
+          apiTimeoutMs: config.logicMonitor.apiTimeoutMs,
         });
 
         const sessionManager =
@@ -162,6 +173,7 @@ async function startHttpServer() {
           transport,
           server: mcpServer,
           clientId,
+          credentialsKey,
           closed: false,
           sessionManager
         };
@@ -175,10 +187,11 @@ async function startHttpServer() {
           if (contextRef.sessionId) {
             sessions.delete(contextRef.sessionId);
             logger.info(`Session ${contextRef.sessionId} closed (${reason})`);
+            const authMode = req.auth?.authMode || 'none';
             auditLogger.logSessionClosed(
               contextRef.sessionId,
               clientId,
-              req.auth!.authMode,
+              authMode,
               reason,
               req.requestId
             );
@@ -208,6 +221,7 @@ async function startHttpServer() {
         await sessionContext.server.connect(transport);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await sessionContext.transport.handleRequest(req as any, res, req.body);
     } catch (error) {
       logger.error('MCP request error:', error);
@@ -261,9 +275,10 @@ async function startHttpServer() {
   // Start HTTPS server if enabled
   if (config.https.enabled) {
     try {
+      // Config validation ensures certPath and keyPath exist when HTTPS is enabled
       const httpsOptions = {
-        cert: fs.readFileSync(config.https.certPath!),
-        key: fs.readFileSync(config.https.keyPath!),
+        cert: fs.readFileSync(config.https.certPath as string),
+        key: fs.readFileSync(config.https.keyPath as string),
         ca: config.https.caPath ? fs.readFileSync(config.https.caPath) : undefined,
       };
 
@@ -319,6 +334,7 @@ async function startStdioServer() {
     },
     clientId: 'stdio-client',
     authMode: 'none',
+    apiTimeoutMs: config.logicMonitor.apiTimeoutMs,
   });
   
   const transport = new StdioServerTransport();

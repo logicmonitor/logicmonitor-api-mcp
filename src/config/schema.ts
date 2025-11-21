@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { CONFIG_DEFAULTS } from './defaults.js';
 
 // Auth mode enum
-export const AuthModeSchema = z.enum(['none', 'bearer', 'oauth']);
+export const AuthModeSchema = z.enum(['none', 'bearer']);
 export type AuthMode = z.infer<typeof AuthModeSchema>;
 
 // Log format enum
@@ -65,14 +65,6 @@ export const ConfigSchema = z.object({
     // Bearer token auth
     bearerTokens: z.array(z.string()).optional(),
     
-    // OAuth config
-    oauth: z.object({
-      jwksUrl: z.string().url().optional(),
-      audience: z.string().optional(),
-      issuer: z.string().optional(),
-      requiredScopes: z.array(z.string()).optional(),
-    }).optional(),
-    
     // Credential mapping (auth identity -> LM credentials)
     credentialMapping: CredentialMappingSchema.optional(),
   }).refine(
@@ -86,21 +78,6 @@ export const ConfigSchema = z.object({
     {
       message: 'MCP_BEARER_TOKENS is required when AUTH_MODE=bearer',
     }
-  ).refine(
-    (data) => {
-      // If auth mode is oauth, OAuth config is required
-      if (data.mode === 'oauth') {
-        return (
-          data.oauth?.jwksUrl &&
-          data.oauth?.audience &&
-          data.oauth?.issuer
-        );
-      }
-      return true;
-    },
-    {
-      message: 'OAUTH_JWKS_URL, OAUTH_AUDIENCE, and OAUTH_ISSUER are required when AUTH_MODE=oauth',
-    }
   ),
 
   // LogicMonitor
@@ -112,8 +89,6 @@ export const ConfigSchema = z.object({
 
   // Security
   security: z.object({
-    corsEnabled: z.boolean().default(CONFIG_DEFAULTS.corsEnabled),
-    corsOrigins: z.array(z.string()).default(['http://localhost:3000']),
     rateLimitEnabled: z.boolean().default(CONFIG_DEFAULTS.rateLimitEnabled),
     rateLimitWindowMs: z.number().int().min(1000).default(CONFIG_DEFAULTS.rateLimitWindowMs),
     rateLimitMaxRequests: z.number().int().min(1).default(CONFIG_DEFAULTS.rateLimitMaxRequests),
@@ -141,4 +116,3 @@ export const ValidatedConfigSchema = ConfigSchema.refine(
     return true;
   }
 );
-

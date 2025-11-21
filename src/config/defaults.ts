@@ -22,10 +22,9 @@ export const CONFIG_DEFAULTS = {
   // LogicMonitor
   lmApiTimeoutMs: 30000,
 
-  // Security
-  corsEnabled: true,
-  corsOrigins: ['http://localhost:3000'],
-  rateLimitEnabled: true,
+  // Rate limiting is disabled by default for MCP servers since clients are typically trusted
+  // Enable for public deployments or when serving untrusted clients
+  rateLimitEnabled: false,
   rateLimitWindowMs: 60000,
   rateLimitMaxRequests: 100,
   sessionTimeoutMs: 3600000,
@@ -36,6 +35,6 @@ export const CONFIG_DEFAULTS = {
   auditLogEnabled: true,
 } as const;
 
-export type AuthMode = 'none' | 'bearer' | 'oauth';
+export type AuthMode = 'none' | 'bearer';
 export type LogFormat = 'json' | 'simple';
 
