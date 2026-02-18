@@ -16,6 +16,7 @@ describe('lm_alert', () => {
     // Try to find an existing alert for update tests
     const listResult = await client.callTool('lm_alert', {
       operation: 'list',
+      autoPaginate: false,
       size: 1,
     });
 
@@ -31,6 +32,8 @@ describe('lm_alert', () => {
     test('should list alerts with default parameters', async () => {
       const result = await client.callTool('lm_alert', {
         operation: 'list',
+        size: 5,
+        autoPaginate: false,
       });
 
       assertToolSuccess(result);
@@ -60,6 +63,7 @@ describe('lm_alert', () => {
         operation: 'list',
         filter: 'cleared:false',
         size: 10,
+        autoPaginate: false,
       });
 
       assertToolSuccess(result);
@@ -71,6 +75,7 @@ describe('lm_alert', () => {
     test('should list alerts with field selection', async () => {
       const result = await client.callTool('lm_alert', {
         operation: 'list',
+        autoPaginate: false,
         size: 1,
         fields: 'id,severity,resourceId',
       });
@@ -91,6 +96,7 @@ describe('lm_alert', () => {
       const result = await client.callTool('lm_alert', {
         operation: 'list',
         size: 5,
+        autoPaginate: false,
         sort: '-startEpoch', // Most recent first
       });
 

@@ -1,6 +1,10 @@
-[![Test Suite](https://github.com/logicmonitor/lm-api-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/logicmonitor/lm-api-mcp/actions/workflows/test.yml)
+[![Test Suite](https://github.com/logicmonitor/logicmonitor-api-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/logicmonitor/logicmonitor-api-mcp/actions/workflows/test.yml)
 
 # LogicMonitor MCP Server
+
+> **⚠️ Community Project Disclaimer**
+> 
+> This is an open-source community project and is **not officially supported by LogicMonitor**. While hosted in the LogicMonitor github organization, support is provided on an "as-is" basis through GitHub issues and community contributions. For questions, bug reports, or feature requests, please open an issue on this repository.
 
 A Model Context Protocol (MCP) server that provides secure access to the LogicMonitor API, enabling AI assistants to manage monitoring infrastructure through natural language commands.
 
@@ -19,7 +23,7 @@ A Model Context Protocol (MCP) server that provides secure access to the LogicMo
 
 - All tools now return the full LogicMonitor API payload (`raw`) together with request metadata so downstream agents never lose fields that the API exposes.
 - When specifying the optional `fields` parameter, only LogicMonitor-supported field names are accepted. Invalid field names trigger a `InvalidParams` error to prevent silent data loss or filtering mistakes.
-- Use `*` (or omit `fields`) to request the complete object. The `docs/swagger.json` file shipped with the project contains the authoritative schema for each resource if you need to look up the available fields.
+-  The `src/schemas/swagger.json` file shipped with the project contains the authoritative schema for each resource if you need to look up the available fields.
 - Responses always include:
   - `items` / `device`, etc. – parsed data objects for convenience
   - `raw` – the exact API payload
@@ -38,17 +42,14 @@ npm install -g logicmonitor-api-mcp
 
 ```bash
 # Clone the repository
-git clone https://github.com/logicmonitor/lm-api-mcp.git
-cd lm-api-mcp
+git clone https://github.com/stevevillardi/logicmonitor-api-mcp.git
+cd logicmonitor-api-mcp
 
 # Install dependencies
 npm install
 
 # Build the project
 npm run build
-
-# Optional: Link globally
-npm link
 ```
 
 ## Configuration
@@ -85,7 +86,7 @@ If installed from source, use the full path:
   "mcpServers": {
     "logicmonitor": {
       "command": "node",
-      "args": ["/path/to/lm-api-mcp/dist/index.js", "--stdio"],
+      "args": ["/path/to/logicmonitor-api-mcp/dist/index.js", "--stdio"],
       "env": {
         "LM_ACCOUNT": "your-account-name",
         "LM_BEARER_TOKEN": "your-bearer-token"
@@ -147,9 +148,49 @@ Then connect without credentials in headers:
 
 When no `X-LM-*` headers are provided, the server falls back to `LM_ACCOUNT` and `LM_BEARER_TOKEN` environment variables that were set when the process started.
 
+### Authentication
+
+The server supports two auth modes (`AUTH_MODE`):
+
+- `none` (default): No MCP client authentication. Only safe for STDIO transport or trusted networks.
+- `bearer`: Static bearer token authentication. Clients send `Authorization: Bearer <token>`.
+
+**LogicMonitor Credentials** are resolved in priority order:
+1. **X-LM-Account + X-LM-Bearer-Token headers** (highest priority, per-request override)
+2. **AUTH_CREDENTIAL_MAPPING** (maps bearer token/clientId to LM credentials)
+3. **LM_ACCOUNT + LM_BEARER_TOKEN** (default fallback)
+
+**Bearer Token Configuration**
+```bash
+AUTH_MODE=bearer
+MCP_BEARER_TOKENS=token1,token2,token3
+
+# Option 1: Use per-request headers (most flexible)
+# Clients send X-LM-Account and X-LM-Bearer-Token headers with each request
+
+# Option 2: Map bearer tokens to LM credentials
+AUTH_CREDENTIAL_MAPPING='{"token1":{"account":"prod","token":"lm-xyz"},"token2":{"account":"dev","token":"lm-abc"}}'
+
+# Option 3: Use default credentials (fallback for all tokens)
+LM_ACCOUNT=default-account
+LM_BEARER_TOKEN=default-lm-token
+
+# Wildcard mapping (applies to any token not explicitly mapped)
+AUTH_CREDENTIAL_MAPPING='{"*":{"account":"shared","token":"lm-default"}}'
+```
+
+**Example: Bearer token with per-request credentials**
+```bash
+curl -H "Authorization: Bearer token1" \
+     -H "X-LM-Account: mycompany" \
+     -H "X-LM-Bearer-Token: my-lm-token" \
+     -H "Content-Type: application/json" \
+     https://your-server:3000/mcp
+```
+
 ## Available Tools
 
-The server provides **10 resource-based tools** that handle all CRUD operations through an `operation` parameter:
+The server provides **resource-based tools** that handle all CRUD operations through an `operation` parameter:
 
 ### Core Resource Tools
 
@@ -231,12 +272,36 @@ Key features:
 - Flexible time ranges (ISO 8601 dates or Unix epochs, defaults to last 24 hours)
 - Formatted output with timestamps and metric values
 
-### Session Utilities
-- `lm_get_session_context` - View stored variables, last results, and recent history
-- `lm_set_session_variable` - Persist custom key/value pairs across tool calls
-- `lm_get_session_variable` - Retrieve stored session values
-- `lm_clear_session_context` - Reset session state
-- `lm_list_session_history` - Inspect recent tool invocations
+#### `lm_session`
+Manage session context and variables using standard CRUD operations:
+
+**Operations:**
+- **list** - Get session history (recent tool calls)
+  - Parameters: `limit` (optional, 1-50)
+- **get** - Get session context or specific variable
+  - Parameters: `key` (optional - if omitted, returns full context), `historyLimit`, `includeResults`
+- **create** - Store a new session variable
+  - Parameters: `key` (required), `value` (required)
+  - Use for storing results for batch operations with applyToPrevious
+- **update** - Update an existing session variable
+  - Parameters: `key` (required), `value` (required)
+- **delete** - Clear session data
+  - Parameters: `scope` (optional: 'variables', 'history', 'results', or 'all')
+
+**Example Usage:**
+```json
+// Store devices for batch operations
+{ "operation": "create", "key": "myDevices", "value": [...] }
+
+// Get a stored variable
+{ "operation": "get", "key": "myDevices" }
+
+// View session history
+{ "operation": "list", "limit": 10 }
+
+// Clear all session data
+{ "operation": "delete", "scope": "all" }
+```
 
 ## Available Prompts
 

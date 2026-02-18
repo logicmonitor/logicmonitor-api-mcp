@@ -30,6 +30,7 @@ export interface LMDevice {
   alertStatusPriority: number;
   alertDisableStatus: string;
   sdtStatus: string;
+  linkUrl?: string;
 }
 
 export interface LMDeviceGroup {
@@ -172,6 +173,7 @@ export interface LMAlert {
     empty: boolean;
   };
   customColumns?: Record<string, string>;
+  linkUrl?: string;
 }
 
 export interface LMAlertPaginatedResponse extends LMPaginatedResponse<LMAlert> {
@@ -267,6 +269,7 @@ export interface LMWebsite {
     name: string;
     value: string;
   }>;
+  linkUrl?: string;
 }
 
 export interface LMWebsiteGroup {
@@ -375,6 +378,7 @@ export interface LMDashboard {
     value: string;
   }>;
   overwriteGroupFields: boolean;
+  linkUrl?: string;
 }
 
 export interface LMCollectorGroup {

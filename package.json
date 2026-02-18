@@ -13,14 +13,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "inspector": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "generate:schemas": "orval",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=tests/tools",
-    "test:client": "node tests/test-client.js",
-    "test:headers": "node tests/test-headers.js",
-    "test:session": "node tests/test-session.js",
-    "test:filters": "node tests/test-filters.js",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [
@@ -37,12 +31,12 @@
   "license": "MPL-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LogicMonitor/lm-api-mcp.git"
+    "url": "git+https://github.com/LogicMonitor/logicmonitor-api-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/LogicMonitor/lm-api-mcp/issues"
+    "url": "https://github.com/LogicMonitor/logicmonitor-api-mcp/issues"
   },
-  "homepage": "https://github.com/LogicMonitor/lm-api-mcp#readme",
+  "homepage": "https://github.com/LogicMonitor/logicmonitor-api-mcp#readme",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -53,25 +47,25 @@
     "examples/**/*"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.2",
-    "@types/jest": "^30.0.0",
-    "axios": "^1.9.0",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "helmet": "^8.1.0",
-    "joi": "^18.0.2",
-    "ts-jest": "^29.4.5",
-    "typescript-eslint": "^8.47.0",
-    "winston": "^3.17.0"
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "axios": "^1.13.5",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "winston": "^3.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/express": "^5.0.2",
-    "@types/node": "^24.10.1",
-    "@typescript-eslint/eslint-plugin": "^8.32.1",
-    "@typescript-eslint/parser": "^8.32.1",
-    "eslint": "^9.39.1",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "eslint": "^10.0.0",
     "jest": "^30.2.0",
-    "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "orval": "^8.4.0",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }

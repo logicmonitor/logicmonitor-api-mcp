@@ -15,7 +15,7 @@ We take the security of our software seriously. If you believe you have found a 
 
 Please follow these steps to report a vulnerability:
 
-1. **Report security vulnerabilities through the public GitHub issues at [https://github.com/LogicMonitor/lm-api-mcp/issues](https://github.com/LogicMonitor/lm-api-mcp/issues).**
+1. **Report security vulnerabilities through the public GitHub issues at [https://github.com/LogicMonitor/logicmonitor-api-mcp/issues](https://github.com/LogicMonitor/logicmonitor-api-mcp/issues).**
 2. Include the following details:
    - Description of the vulnerability.
    - Steps to reproduce. This is incredibly important for us to be able to reproduce your findings.

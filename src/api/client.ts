@@ -51,6 +51,10 @@ export interface ApiResult<T> {
   meta: LogicMonitorResponseMeta;
 }
 
+export interface LogicMonitorClientOptions {
+  timeoutMs?: number;
+}
+
 export interface ApiListResult<T> {
   items: T[];
   total: number;
@@ -84,11 +88,13 @@ const ALERT_FILTER_FIELDS = getKnownFields('alert');
 export class LogicMonitorClient {
   private axiosInstance: AxiosInstance;
   private logger: winston.Logger;
+  private readonly account: string;
 
   constructor(
     account: string,
     bearerToken: string,
-    logger?: winston.Logger
+    logger?: winston.Logger,
+    options: LogicMonitorClientOptions = {}
   ) {
     this.logger = logger || winston.createLogger({
       level: 'info',
@@ -96,14 +102,17 @@ export class LogicMonitorClient {
       transports: [new winston.transports.Console()]
     });
 
+    const timeout = options.timeoutMs ?? 30000;
+    this.account = account.trim().toLowerCase();
+
     this.axiosInstance = axios.create({
-      baseURL: `https://${account}.logicmonitor.com/santaba/rest`,
+      baseURL: `https://${this.account}.logicmonitor.com/santaba/rest`,
       headers: {
         'Authorization': `Bearer ${bearerToken}`,
         'Content-Type': 'application/json',
         'X-Version': '3'
       },
-      timeout: 30000
+      timeout
     });
 
     this.axiosInstance.interceptors.response.use(
@@ -1996,5 +2005,9 @@ export class LogicMonitorClient {
       raw: response.data,
       meta: this.createResponseMeta(response, requestContext, duration)
     };
+  }
+
+  getAccount(): string {
+    return this.account;
   }
 }

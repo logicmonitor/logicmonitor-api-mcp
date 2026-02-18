@@ -104,7 +104,7 @@ This will generate a detailed report of all packages used in production.
 ## Reporting Issues
 
 If you believe any dependency license information is incorrect or if you have concerns about license compatibility, please open an issue at:
-https://github.com/LogicMonitor/lm-api-mcp/issues
+https://github.com/LogicMonitor/logicmonitor-api-mcp/issues
 
 ---
 
