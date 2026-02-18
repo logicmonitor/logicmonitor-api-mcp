@@ -2,7 +2,7 @@
  * Alert Resource Handler
  */
 
-import { McpError, ErrorCode } from '@socotra/modelcontextprotocol-sdk/types.js';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { ResourceHandler } from '../base/resourceHandler.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';

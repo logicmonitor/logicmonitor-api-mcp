@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { McpError, ErrorCode } from '@socotra/modelcontextprotocol-sdk/types.js';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 // List datasources operation schema
 export const DeviceDataListDatasourcesArgsSchema = z.object({

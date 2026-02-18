@@ -8,7 +8,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMDevice } from '../../types/logicmonitor.js';
@@ -155,7 +154,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const devicesInput = this.normalizeCreateInput(validated);
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       devicesInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (devicePayload) => this.client.createDevice(devicePayload as any),
@@ -306,7 +305,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
       payload: args.updates || this.buildUpdatePayload(item as unknown as Record<string, unknown>)
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       updateOps,
       async ({ deviceId, payload }) => this.client.updateDevice(deviceId as number, payload),
       {
@@ -364,7 +363,7 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
       deviceId: (item as Record<string, unknown>).deviceId || item.id
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       deviceIds,
       async ({ deviceId }) => this.client.deleteDevice(deviceId),
       {

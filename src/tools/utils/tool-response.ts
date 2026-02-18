@@ -1,4 +1,5 @@
 import type { BaseOperationArgs, OperationResult, OperationType } from '../../types/operations.js';
+import { capitalizeFirst } from '../../utils/strings.js';
 
 interface ToolResponseConfig {
   resourceName: string;
@@ -128,10 +129,4 @@ function deriveDefaultSessionKeys<T>(
   return keys;
 }
 
-function capitalizeFirst(value: string) {
-  if (!value.length) {
-    return value;
-  }
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
 

@@ -2,25 +2,23 @@
  * Alert Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { AlertOperationArgsSchema } from '../../resources/alert/alertZodSchemas.js';
-import { AlertHandler } from '../../resources/alert/alertHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_alert tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create an AlertHandler instance
+ * Registers the lm_alert tool with the MCP server and returns its metadata
  */
 export function registerAlertTool(
   server: McpServer,
-  createHandler: () => AlertHandler
-): void {
-  server.registerTool(
-    'lm_alert',
-    {
-      title: 'LogicMonitor Alert Management',
-      description: `Manage LogicMonitor alerts. Supports the following operations:
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor Alert Management',
+    description: `Manage LogicMonitor alerts. Supports the following operations:
 - list: Retrieve alerts with optional filtering and field selection
 - get: Get a specific alert by ID
 - update: Update an alert (ack, note, escalate)
@@ -28,18 +26,10 @@ export function registerAlertTool(
 Available fields can be found at: health://logicmonitor/fields/alert
 
 Note: Alert creation and deletion are not supported via the API.`,
-      inputSchema: AlertOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      return buildToolResponse(args, result, {
-        resourceName: 'alert',
-        resourceTitle: 'LogicMonitor alert'
-      });
-    }
-  );
+    inputSchema: AlertOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+  };
+  server.registerTool('lm_alert', toolDef, handler);
+  return { name: 'lm_alert', ...toolDef };
 }
 

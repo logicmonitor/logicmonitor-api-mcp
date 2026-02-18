@@ -2,25 +2,23 @@
  * User Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { UserOperationArgsSchema } from '../../resources/user/userZodSchemas.js';
-import { UserHandler } from '../../resources/user/userHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_user tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create a UserHandler instance
+ * Registers the lm_user tool with the MCP server and returns its metadata
  */
 export function registerUserTool(
   server: McpServer,
-  createHandler: () => UserHandler
-): void {
-  server.registerTool(
-    'lm_user',
-    {
-      title: 'LogicMonitor User Management',
-      description: `Manage LogicMonitor users. Supports the following operations:
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor User Management',
+    description: `Manage LogicMonitor users. Supports the following operations:
 - list: Retrieve users with optional filtering and field selection
 - get: Get a specific user by ID
 - create: Create one or more users (supports batch operations)
@@ -33,18 +31,10 @@ Batch operations support:
 - Explicit arrays via 'users' parameter
 - applyToPrevious: Reference session variables for batch operations
 - filter: Apply operations to all users matching a filter`,
-      inputSchema: UserOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      return buildToolResponse(args, result, {
-        resourceName: 'user',
-        resourceTitle: 'LogicMonitor user'
-      });
-    }
-  );
+    inputSchema: UserOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+  };
+  server.registerTool('lm_user', toolDef, handler);
+  return { name: 'lm_user', ...toolDef };
 }
 

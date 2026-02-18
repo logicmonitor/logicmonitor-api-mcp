@@ -8,7 +8,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMCollectorGroup } from '../../types/logicmonitor.js';
@@ -134,7 +133,7 @@ export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const groupsInput = this.normalizeCreateInput(validated);
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       groupsInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (groupPayload) => this.client.createCollectorGroup(groupPayload as any),
@@ -209,7 +208,7 @@ export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
       BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
       const updates = validated.updates || {};
-      const batchResult = await batchProcessor.processBatch(
+      const batchResult = await this.processBatch(
         resolution.items,
         async (group: Record<string, unknown>) => {
           const groupId = group.id ?? group.groupId;
@@ -302,7 +301,7 @@ export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
         itemsToDelete = resolution.items;
       }
 
-      const batchResult = await batchProcessor.processBatch(
+      const batchResult = await this.processBatch(
         itemsToDelete,
         async (group: Record<string, unknown>) => {
           const groupId = group.id ?? group.groupId;

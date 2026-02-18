@@ -1,8 +1,10 @@
 /**
  * Test client wrapper for MCP server
- * Provides a simplified interface for testing tool calls
+ * Uses InMemoryTransport for proper SDK-based testing
  */
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer, ServerConfig } from '../../src/server.js';
 import { SessionManager } from '../../src/session/sessionManager.js';
 import winston from 'winston';
@@ -12,13 +14,15 @@ export interface ToolCallResult {
   content: Array<{ type: string; text: string }>;
   data?: unknown;
   error?: string;
+  isError?: boolean;
 }
 
 export class TestMCPClient {
-  private server: Awaited<ReturnType<typeof createServer>>;
+  private client!: Client;
   private sessionManager: SessionManager;
   private sessionId: string;
   private logger: winston.Logger;
+  private _credentials: { lmAccount: string; lmBearerToken: string };
 
   constructor(
     lmAccount: string,
@@ -28,24 +32,17 @@ export class TestMCPClient {
     this.sessionId = sessionId;
     this.sessionManager = new SessionManager();
     
-    // Create a logger that only logs errors in tests
     this.logger = winston.createLogger({
       level: process.env.LOG_LEVEL || 'error',
       format: winston.format.json(),
       transports: [new winston.transports.Console({ silent: process.env.LOG_LEVEL !== 'debug' })],
     });
 
-    // Initialize server (will be set in init())
-    this.server = null as any;
-    
-    // Store credentials for init
     this._credentials = {
       lmAccount,
       lmBearerToken,
     };
   }
-
-  private _credentials: { lmAccount: string; lmBearerToken: string };
 
   async init(): Promise<void> {
     const config: ServerConfig = {
@@ -57,7 +54,17 @@ export class TestMCPClient {
       logger: this.logger,
     };
 
-    this.server = await createServer(config);
+    const { server: mcpServer } = await createServer(config);
+
+    // Create linked in-memory transports
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    serverTransport.sessionId = this.sessionId;
+
+    // Connect server and client via in-memory transports
+    await mcpServer.server.connect(serverTransport);
+
+    this.client = new Client({ name: 'test-client', version: '1.0.0' });
+    await this.client.connect(clientTransport);
   }
 
   /**
@@ -65,44 +72,31 @@ export class TestMCPClient {
    */
   async callTool(toolName: string, args: Record<string, unknown>): Promise<ToolCallResult> {
     try {
-      // Get the request handler
-      const handler = (this.server.server as any)._requestHandlers.get('tools/call');
-      
-      if (!handler) {
-        throw new Error('Tool call handler not found');
-      }
+      const response = await this.client.callTool({
+        name: toolName,
+        arguments: args,
+      });
 
-      const request = {
-        method: 'tools/call',
-        params: {
-          name: toolName,
-          arguments: args,
-        },
-      };
-
-      const extra = {
-        sessionId: this.sessionId,
-      };
-
-      const response = await handler(request, extra);
-
-      // Parse the response
-      const content = response.content || [];
+      const content = (response.content || []) as Array<{ type: string; text: string }>;
       let data: unknown = undefined;
 
       for (const block of content) {
-        if (block.type !== 'text' || typeof block.text !== 'string') {
-          continue;
-        }
+        if (block.type !== 'text' || typeof block.text !== 'string') continue;
+        if (!block.text.trim()) continue;
 
-        if (!block.text.trim()) {
-          continue;
-        }
-
+        // Try direct JSON parse first
         try {
           data = JSON.parse(block.text);
           break;
         } catch {
+          // buildToolResponse wraps JSON as "Full LogicMonitor payload:\n{...}"
+          const payloadPrefix = 'Full LogicMonitor payload:\n';
+          if (block.text.startsWith(payloadPrefix)) {
+            try {
+              data = JSON.parse(block.text.slice(payloadPrefix.length));
+              break;
+            } catch { /* not JSON payload */ }
+          }
           if (typeof data === 'undefined') {
             data = block.text;
           }
@@ -113,10 +107,19 @@ export class TestMCPClient {
         data = content[0].text;
       }
 
+      // Extract error message from isError responses
+      const isError = response.isError as boolean | undefined;
+      let error: string | undefined;
+      if (isError && content.length > 0 && content[0].type === 'text') {
+        error = content[0].text;
+      }
+
       return {
-        success: true,
+        success: !isError,
         content,
         data,
+        error,
+        isError,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -155,6 +158,13 @@ export class TestMCPClient {
   setSessionVariable(key: string, value: unknown) {
     return this.sessionManager.setVariable(this.sessionId, key, value);
   }
+
+  /**
+   * Close the client connection
+   */
+  async close(): Promise<void> {
+    await this.client.close();
+  }
 }
 
 /**
@@ -170,4 +180,3 @@ export async function createTestClient(sessionId?: string): Promise<TestMCPClien
   await client.init();
   return client;
 }
-

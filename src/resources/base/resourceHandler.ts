@@ -6,6 +6,9 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager, SessionContext } from '../../session/sessionManager.js';
+import { capitalizeFirst } from '../../utils/strings.js';
+import { batchProcessor, type BatchOptions, type BatchResult, type BatchDiagnostics } from '../../utils/batchProcessor.js';
+import type { LogicMonitorResponseMeta } from '../../api/client.js';
 import type {
   ResourceType,
   OperationType,
@@ -26,20 +29,70 @@ export interface ResourceHandlerConfig {
 
 export abstract class ResourceHandler<T = unknown> {
   protected readonly config: ResourceHandlerConfig;
-  protected readonly client: LogicMonitorClient;
+  private readonly _client: LogicMonitorClient | undefined;
   protected readonly sessionManager: SessionManager;
   protected readonly sessionContext: SessionContext;
+  private _progressCallback?: (progress: number, total: number) => void;
 
   constructor(
     config: ResourceHandlerConfig,
-    client: LogicMonitorClient,
+    client: LogicMonitorClient | undefined,
     sessionManager: SessionManager,
     sessionId?: string
   ) {
     this.config = config;
-    this.client = client;
+    this._client = client;
     this.sessionManager = sessionManager;
     this.sessionContext = sessionManager.getContext(sessionId);
+  }
+
+  /**
+   * Access the API client. Throws a clear error if no client was provided
+   * (e.g. SessionHandler operates without one).
+   */
+  protected get client(): LogicMonitorClient {
+    if (!this._client) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `${this.config.resourceType} handler requires a LogicMonitor API client but none was provided`
+      );
+    }
+    return this._client;
+  }
+
+  /**
+   * Set an optional progress callback for MCP ProgressNotifications.
+   * Called by the CallToolRequestSchema handler when the client supplies a progressToken.
+   */
+  setProgressCallback(callback?: (progress: number, total: number) => void): void {
+    this._progressCallback = callback;
+  }
+
+  /** Expose progress callback to subclasses for direct use if needed */
+  protected get progressCallback(): ((progress: number, total: number) => void) | undefined {
+    return this._progressCallback;
+  }
+
+  /**
+   * Wrapper around batchProcessor.processBatch that automatically wires
+   * the MCP progress callback so clients receive ProgressNotifications.
+   */
+  protected async processBatch<TInput, TData>(
+    items: TInput[],
+    processor: (item: TInput, index: number) => Promise<
+      TData | {
+        data: TData;
+        diagnostics?: BatchDiagnostics;
+        meta?: LogicMonitorResponseMeta;
+        raw?: unknown;
+      }
+    >,
+    options: Omit<BatchOptions, 'onProgress'> = {}
+  ): Promise<BatchResult<TData>> {
+    return batchProcessor.processBatch(items, processor, {
+      ...options,
+      onProgress: this._progressCallback
+    });
   }
 
   /**
@@ -99,8 +152,8 @@ export abstract class ResourceHandler<T = unknown> {
     }
 
     // Try to resolve from session context
-    const lastCreatedKey = `lastCreated${this.capitalizeFirst(this.config.resourceName)}`;
-    const lastKey = `last${this.capitalizeFirst(this.config.resourceName)}`;
+    const lastCreatedKey = `lastCreated${capitalizeFirst(this.config.resourceName)}`;
+    const lastKey = `last${capitalizeFirst(this.config.resourceName)}`;
 
     // Check for last created resource
     if (this.sessionContext.variables[lastCreatedKey]) {
@@ -128,7 +181,7 @@ export abstract class ResourceHandler<T = unknown> {
    * Store result in session context with appropriate keys
    */
   protected storeInSession(operation: OperationType, result: OperationResult<T>): void {
-    const resourceName = this.capitalizeFirst(this.config.resourceName);
+    const resourceName = capitalizeFirst(this.config.resourceName);
 
     switch (operation) {
       case 'list':
@@ -169,11 +222,5 @@ export abstract class ResourceHandler<T = unknown> {
     }
   }
 
-  /**
-   * Helper to capitalize first letter
-   */
-  private capitalizeFirst(str: string): string {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  }
 }
 

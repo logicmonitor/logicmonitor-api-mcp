@@ -2,25 +2,23 @@
  * Website Group Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebsiteGroupOperationArgsSchema } from '../../resources/websiteGroup/websiteGroupZodSchemas.js';
-import { WebsiteGroupHandler } from '../../resources/websiteGroup/websiteGroupHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_website_group tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create a WebsiteGroupHandler instance
+ * Registers the lm_website_group tool with the MCP server and returns its metadata
  */
 export function registerWebsiteGroupTool(
   server: McpServer,
-  createHandler: () => WebsiteGroupHandler
-): void {
-  server.registerTool(
-    'lm_website_group',
-    {
-      title: 'LogicMonitor Website Group Management',
-      description: `Manage LogicMonitor website groups. Supports the following operations:
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor Website Group Management',
+    description: `Manage LogicMonitor website groups. Supports the following operations:
 - list: Retrieve website groups with optional filtering and field selection
 - get: Get a specific website group by ID
 - create: Create one or more website groups (supports batch operations)
@@ -33,18 +31,10 @@ Batch operations support:
 - Explicit arrays via 'groups' parameter
 - applyToPrevious: Reference session variables for batch operations
 - filter: Apply operations to all groups matching a filter`,
-      inputSchema: WebsiteGroupOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      return buildToolResponse(args, result, {
-        resourceName: 'websiteGroup',
-        resourceTitle: 'LogicMonitor website group'
-      });
-    }
-  );
+    inputSchema: WebsiteGroupOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+  };
+  server.registerTool('lm_website_group', toolDef, handler);
+  return { name: 'lm_website_group', ...toolDef };
 }
 

@@ -7,7 +7,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMWebsiteGroup } from '../../types/logicmonitor.js';
@@ -108,7 +107,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupsInput = isBatch ? (validated as any).groups : [validated];
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       groupsInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (group: Record<string, unknown>) => this.client.createWebsiteGroup(group as any),
@@ -232,7 +231,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
       updates: args.updates || item
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       updateOps,
       async ({ groupId, updates }) => this.client.updateWebsiteGroup(groupId, updates),
       {
@@ -272,7 +271,7 @@ export class WebsiteGroupHandler extends ResourceHandler<LMWebsiteGroup> {
       deleteChildren: (args.deleteChildren as boolean) ?? false
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       deleteOps,
       async ({ groupId, deleteChildren }) => this.client.deleteWebsiteGroup(groupId, { deleteChildren }),
       {

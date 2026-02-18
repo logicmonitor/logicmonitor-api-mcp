@@ -7,14 +7,13 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { ResourceHandler } from '../base/resourceHandler.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import type {
   LMDeviceDatasource,
   LMDeviceDatasourceInstance,
   LMDeviceData,
   LMDeviceDataFormatted
 } from '../../types/logicmonitor.js';
-import type { OperationResult } from '../../types/operations.js';
+import type { OperationResult, OperationType } from '../../types/operations.js';
 import type { BatchResult, BatchItem } from '../../utils/batchProcessor.js';
 import {
   validateListDatasources,
@@ -298,7 +297,7 @@ export class DeviceDataHandler extends ResourceHandler<DeviceDataType> {
       aggregate
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       batchOps,
       async (op) => {
         const apiResult = await this.client.getDeviceData(
@@ -423,6 +422,20 @@ export class DeviceDataHandler extends ResourceHandler<DeviceDataType> {
       instanceName: '',
       dataPoints
     };
+  }
+
+  /**
+   * Override storeInSession to map custom operations to standard types.
+   * list_datasources and list_instances map to 'list'; get_data maps to 'get'.
+   */
+  protected override storeInSession(operation: OperationType | string, result: OperationResult<DeviceDataType>): void {
+    const operationMap: Record<string, OperationType> = {
+      'list_datasources': 'list',
+      'list_instances': 'list',
+      'get_data': 'get'
+    };
+    const standardOp = operationMap[operation] || (operation as OperationType);
+    super.storeInSession(standardOp, result);
   }
 
   // Required abstract methods from ResourceHandler

@@ -2,25 +2,23 @@
  * Dashboard Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DashboardOperationArgsSchema } from '../../resources/dashboard/dashboardZodSchemas.js';
-import { DashboardHandler } from '../../resources/dashboard/dashboardHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_dashboard tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create a DashboardHandler instance
+ * Registers the lm_dashboard tool with the MCP server and returns its metadata
  */
 export function registerDashboardTool(
   server: McpServer,
-  createHandler: () => DashboardHandler
-): void {
-  server.registerTool(
-    'lm_dashboard',
-    {
-      title: 'LogicMonitor Dashboard Management',
-      description: `Manage LogicMonitor dashboards. Supports the following operations:
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor Dashboard Management',
+    description: `Manage LogicMonitor dashboards. Supports the following operations:
 - list: Retrieve dashboards with optional filtering and field selection
 - get: Get a specific dashboard by ID
 - create: Create one or more dashboards (supports batch operations)
@@ -33,18 +31,10 @@ Batch operations support:
 - Explicit arrays via 'dashboards' parameter
 - applyToPrevious: Reference session variables for batch operations
 - filter: Apply operations to all dashboards matching a filter`,
-      inputSchema: DashboardOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      return buildToolResponse(args, result, {
-        resourceName: 'dashboard',
-        resourceTitle: 'LogicMonitor dashboard'
-      });
-    }
-  );
+    inputSchema: DashboardOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+  };
+  server.registerTool('lm_dashboard', toolDef, handler);
+  return { name: 'lm_dashboard', ...toolDef };
 }
 

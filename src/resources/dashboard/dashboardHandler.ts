@@ -8,7 +8,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMDashboard } from '../../types/logicmonitor.js';
@@ -130,7 +129,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const dashboardsInput = this.normalizeCreateInput(validated);
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       dashboardsInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (dashboardPayload) => this.client.createDashboard(dashboardPayload as any),
@@ -206,7 +205,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
       BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
       const updates = validated.updates || {};
-      const batchResult = await batchProcessor.processBatch(
+      const batchResult = await this.processBatch(
         resolution.items,
         async (dashboard: Record<string, unknown>) => {
           const dashboardId = dashboard.id ?? dashboard.dashboardId;
@@ -300,7 +299,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
         itemsToDelete = resolution.items;
       }
 
-      const batchResult = await batchProcessor.processBatch(
+      const batchResult = await this.processBatch(
         itemsToDelete,
         async (dashboard: Record<string, unknown>) => {
           const dashboardId = dashboard.id ?? dashboard.dashboardId;

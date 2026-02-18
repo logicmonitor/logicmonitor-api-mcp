@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { McpError, ErrorCode } from '@socotra/modelcontextprotocol-sdk/types.js';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 // List operation schema (get history)
 export const SessionListArgsSchema = z.object({

@@ -8,7 +8,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMUser } from '../../types/logicmonitor.js';
@@ -134,7 +133,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
     const batchOptions = BatchOperationResolver.extractBatchOptions(validated as any);
     const usersInput = this.normalizeCreateInput(validated);
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       usersInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (userPayload) => this.client.createUser(userPayload as any),
@@ -209,7 +208,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
       BatchOperationResolver.validateBatchSafety(resolution, 'update');
 
       const updates = validated.updates || {};
-      const batchResult = await batchProcessor.processBatch(
+      const batchResult = await this.processBatch(
         resolution.items,
         async (user: Record<string, unknown>) => {
           const userId = user.id ?? user.userId;
@@ -302,7 +301,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
         itemsToDelete = resolution.items;
       }
 
-      const batchResult = await batchProcessor.processBatch(
+      const batchResult = await this.processBatch(
         itemsToDelete,
         async (user: Record<string, unknown>) => {
           const userId = user.id ?? user.userId;

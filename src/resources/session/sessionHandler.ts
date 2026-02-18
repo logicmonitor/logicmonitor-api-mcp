@@ -4,7 +4,6 @@
  */
 
 import { ResourceHandler } from '../base/resourceHandler.js';
-import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager, SessionScope } from '../../session/sessionManager.js';
 import type {
   ListOperationArgs,
@@ -50,15 +49,13 @@ export class SessionHandler extends ResourceHandler<SessionData> {
     sessionManager: SessionManager,
     sessionId?: string
   ) {
-    // Session handler doesn't need a client - pass null as any
     super(
       {
         resourceType: 'session',
         resourceName: 'session',
         idField: 'sessionId'
       },
-      // Session handler doesn't need a LogicMonitor client
-      null as unknown as LogicMonitorClient,
+      undefined,
       sessionManager,
       sessionId
     );

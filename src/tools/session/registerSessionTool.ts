@@ -2,25 +2,23 @@
  * Session Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SessionOperationArgsSchema } from '../../resources/session/sessionZodSchemas.js';
-import { SessionHandler } from '../../resources/session/sessionHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_session tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create a SessionHandler instance
+ * Registers the lm_session tool with the MCP server and returns its metadata
  */
 export function registerSessionTool(
   server: McpServer,
-  createHandler: () => SessionHandler
-): void {
-  server.registerTool(
-    'lm_session',
-    {
-      title: 'LogicMonitor Session Management',
-      description: `Manage session state, variables, and operation history across tool calls.
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor Session Management',
+    description: `Manage session state, variables, and operation history across tool calls.
 
 OPERATIONS:
 
@@ -40,27 +38,10 @@ QUICK WORKFLOWS:
 - Snapshot validation:
   - Use resources/read health://logicmonitor/session?historyLimit=5&includeResults=true to see the exact keys and history before repeating queries.
   - Use lm_session list to surface storedVariables and applyToPreviousCandidates when working entirely via tools.`,
-      inputSchema: SessionOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      const notes: string[] = [];
-      if (Array.isArray(result.data?.storedVariables) && result.data.storedVariables.length > 0) {
-        notes.push(`Stored variables: ${result.data.storedVariables.join(', ')}`);
-      }
-
-      return buildToolResponse(args, result, {
-        resourceName: 'session',
-        resourceTitle: 'LogicMonitor session',
-        sessionKeyOverrides: Array.isArray(result.data?.storedVariables) && result.data.storedVariables.length > 0
-          ? result.data.storedVariables
-          : undefined,
-        notes: notes.length > 0 ? notes : undefined
-      });
-    }
-  );
+    inputSchema: SessionOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+  };
+  server.registerTool('lm_session', toolDef, handler);
+  return { name: 'lm_session', ...toolDef };
 }
 

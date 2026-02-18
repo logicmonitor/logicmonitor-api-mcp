@@ -1,12 +1,12 @@
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { Writable } from 'node:stream';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   CallToolRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
-  TextContent,
   ErrorCode,
   McpError
-} from '@socotra/modelcontextprotocol-sdk/types.js';
+} from '@modelcontextprotocol/sdk/types.js';
 import winston from 'winston';
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from './appInfo.js';
 import { LogicMonitorClient } from './api/client.js';
@@ -26,7 +26,8 @@ import { DashboardHandler } from './resources/dashboard/dashboardHandler.js';
 import { CollectorGroupHandler } from './resources/collectorGroup/collectorGroupHandler.js';
 import { DeviceDataHandler } from './resources/deviceData/deviceDataHandler.js';
 import { SessionHandler } from './resources/session/sessionHandler.js';
-import type { ResourceType } from './types/operations.js';
+import type { ResourceType, BaseOperationArgs, OperationResult } from './types/operations.js';
+import { buildToolResponse } from './tools/utils/tool-response.js';
 import { registerAlertTool } from './tools/alert/registerAlertTool.js';
 import { registerCollectorTool } from './tools/collector/registerCollectorTool.js';
 import { registerDeviceGroupTool } from './tools/deviceGroup/registerDeviceGroupTool.js';
@@ -38,6 +39,7 @@ import { registerDashboardTool } from './tools/dashboard/registerDashboardTool.j
 import { registerCollectorGroupTool } from './tools/collectorGroup/registerCollectorGroupTool.js';
 import { registerDeviceDataTool } from './tools/deviceData/registerDeviceDataTool.js';
 import { registerSessionTool } from './tools/session/registerSessionTool.js';
+import type { ToolRegistration } from './tools/types.js';
 
 export interface ServerConfig {
   name?: string;
@@ -91,9 +93,36 @@ export async function createServer(config: ServerConfig = {}) {
     },
     {
       instructions,
-      capabilities: { resources: {}, tools: {} }
+      capabilities: { resources: {}, tools: {}, logging: {} }
     }
   );
+
+  // Forward Winston logs as MCP logging notifications to connected clients
+  const winstonToMcpLevel: Record<string, string> = {
+    error: 'error',
+    warn: 'warning',
+    info: 'info',
+    debug: 'debug'
+  };
+
+  const mcpLoggingTransport = new winston.transports.Stream({
+    stream: new Writable({
+      write(chunk: Buffer, _encoding: string, callback: () => void) {
+        try {
+          const parsed = JSON.parse(chunk.toString());
+          const level = winstonToMcpLevel[parsed.level] || 'info';
+          mcpServer.server.sendLoggingMessage({
+            level: level as 'debug' | 'info' | 'warning' | 'error',
+            logger: 'lm-api-mcp',
+            data: parsed.message || parsed
+          }).catch(() => { /* client may not be connected yet */ });
+        } catch { /* ignore parse errors */ }
+        callback();
+      }
+    }),
+    format: winston.format.json()
+  });
+  logger.add(mcpLoggingTransport);
 
   mcpServer.registerResource(
     'logicmonitor-health-status',
@@ -321,8 +350,13 @@ export async function createServer(config: ServerConfig = {}) {
     prompts: {}
   });
 
-  // Register alert tool using high-level API
-  registerAlertTool(mcpServer, () => {
+  // Lazily create and cache a single LogicMonitorClient for the lifetime of this server instance.
+  // This preserves rate-limit tracking across calls and enables HTTP connection reuse.
+  let cachedClient: LogicMonitorClient | undefined;
+
+  function getClient(): LogicMonitorClient {
+    if (cachedClient) return cachedClient;
+
     const credentials = config.credentials || {};
     const { lm_account, lm_bearer_token } = credentials;
     if (!lm_account || !lm_bearer_token) {
@@ -331,209 +365,76 @@ export async function createServer(config: ServerConfig = {}) {
         'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
       );
     }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+    cachedClient = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
       timeoutMs: config.apiTimeoutMs
     });
-    return new AlertHandler(client, sessionManager);
-  });
-
-  // Register collector tool using high-level API
-  registerCollectorTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new CollectorHandler(client, sessionManager);
-  });
-
-  // Register device group tool using high-level API
-  registerDeviceGroupTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new DeviceGroupHandler(client, sessionManager);
-  });
-
-  // Register device tool using high-level API
-  registerDeviceTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new DeviceHandler(client, sessionManager);
-  });
-
-  // Register website tool using high-level API
-  registerWebsiteTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new WebsiteHandler(client, sessionManager);
-  });
-
-  // Register website group tool using high-level API
-  registerWebsiteGroupTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new WebsiteGroupHandler(client, sessionManager);
-  });
-
-  // Register user tool using high-level API
-  registerUserTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new UserHandler(client, sessionManager);
-  });
-
-  // Register dashboard tool using high-level API
-  registerDashboardTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new DashboardHandler(client, sessionManager);
-  });
-
-  // Register collector group tool using high-level API
-  registerCollectorGroupTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new CollectorGroupHandler(client, sessionManager);
-  });
-
-  // Register device data tool using high-level API
-  registerDeviceDataTool(mcpServer, () => {
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
-    }
-    const client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-      timeoutMs: config.apiTimeoutMs
-    });
-    return new DeviceDataHandler(client, sessionManager);
-  });
-
-  // Register session tool using high-level API
-  registerSessionTool(mcpServer, () => {
-    return new SessionHandler(sessionManager);
-  });
-
-  // Override the SDK's ListToolsRequestSchema handler to apply schema flattening
-  // This makes discriminated union parameters visible in the MCP Inspector
-  const { flattenDiscriminatedUnion } = await import('./schemas/zodToJsonSchema.js');
-  const { ListToolsRequestSchema } = await import('@socotra/modelcontextprotocol-sdk/types.js');
-  const { toJsonSchemaCompat } = await import('@socotra/modelcontextprotocol-sdk/server/zod-json-schema-compat.js');
-  
-  interface RegisteredTool {
-    enabled: boolean;
-    title?: string;
-    description?: string;
-    inputSchema?: unknown;
-    outputSchema?: unknown;
-    annotations?: Record<string, unknown>;
-    _meta?: Record<string, unknown>;
+    return cachedClient;
   }
 
+  // Tool response config per resource type for LLM-friendly summaries
+  const toolResponseConfigs: Record<string, { resourceName: string; resourceTitle: string }> = {
+    device: { resourceName: 'device', resourceTitle: 'LogicMonitor device' },
+    deviceGroup: { resourceName: 'deviceGroup', resourceTitle: 'LogicMonitor device group' },
+    website: { resourceName: 'website', resourceTitle: 'LogicMonitor website' },
+    websiteGroup: { resourceName: 'websiteGroup', resourceTitle: 'LogicMonitor website group' },
+    collector: { resourceName: 'collector', resourceTitle: 'LogicMonitor collector' },
+    alert: { resourceName: 'alert', resourceTitle: 'LogicMonitor alert' },
+    user: { resourceName: 'user', resourceTitle: 'LogicMonitor user' },
+    dashboard: { resourceName: 'dashboard', resourceTitle: 'LogicMonitor dashboard' },
+    collectorGroup: { resourceName: 'collectorGroup', resourceTitle: 'LogicMonitor collector group' },
+    deviceData: { resourceName: 'deviceData', resourceTitle: 'LogicMonitor device data' },
+    session: { resourceName: 'session', resourceTitle: 'LogicMonitor session' }
+  };
+
+  // Register tools -- callbacks are stubs because real dispatch goes through CallToolRequestSchema handler below.
+  // Each register function returns ToolRegistration metadata so we can build the ListTools response
+  // from our own registry instead of accessing private SDK internals.
+  const stubHandler = async () => ({ content: [] as never[] });
+  const registeredTools: ToolRegistration[] = [
+    registerAlertTool(mcpServer, stubHandler),
+    registerCollectorTool(mcpServer, stubHandler),
+    registerDeviceGroupTool(mcpServer, stubHandler),
+    registerDeviceTool(mcpServer, stubHandler),
+    registerWebsiteTool(mcpServer, stubHandler),
+    registerWebsiteGroupTool(mcpServer, stubHandler),
+    registerUserTool(mcpServer, stubHandler),
+    registerDashboardTool(mcpServer, stubHandler),
+    registerCollectorGroupTool(mcpServer, stubHandler),
+    registerDeviceDataTool(mcpServer, stubHandler),
+    registerSessionTool(mcpServer, stubHandler),
+  ];
+
+  // Override the SDK's ListToolsRequestSchema handler to apply schema flattening.
+  // This makes discriminated union parameters visible in the MCP Inspector.
+  // Uses our local registeredTools array rather than SDK-private _registeredTools.
+  const { flattenDiscriminatedUnion } = await import('./schemas/zodToJsonSchema.js');
+  const { ListToolsRequestSchema } = await import('@modelcontextprotocol/sdk/types.js');
+  const { toJsonSchemaCompat } = await import('@modelcontextprotocol/sdk/server/zod-json-schema-compat.js');
+
   mcpServer.server.setRequestHandler(ListToolsRequestSchema, () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tools: Object.entries((mcpServer as any)._registeredTools as Record<string, RegisteredTool>)
-      .filter(([, tool]) => tool.enabled)
-      .map(([name, tool]) => {
-        let inputSchema: Record<string, unknown> | undefined;
-        
-        if (tool.inputSchema) {
-          // Convert Zod schema to JSON Schema using SDK's converter
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const jsonSchema = toJsonSchemaCompat(tool.inputSchema as any, {
-            strictUnions: true,
-            pipeStrategy: 'input'
-          }) as Record<string, unknown>;
-          
-          // Apply flattening if it's a discriminated union
-          if (jsonSchema.anyOf && Array.isArray(jsonSchema.anyOf)) {
-            inputSchema = flattenDiscriminatedUnion(jsonSchema);
-          } else {
-            inputSchema = jsonSchema;
-          }
-        }
-        
-        return {
-          name,
-          title: tool.title,
-          description: tool.description,
-          inputSchema,
-          annotations: tool.annotations,
-          _meta: tool._meta
-        };
-      })
+    tools: registeredTools.map(tool => {
+      let inputSchema: Record<string, unknown> | undefined;
+
+      if (tool.inputSchema) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const jsonSchema = toJsonSchemaCompat(tool.inputSchema as any, {
+          strictUnions: true,
+          pipeStrategy: 'input'
+        }) as Record<string, unknown>;
+
+        inputSchema = (jsonSchema.anyOf && Array.isArray(jsonSchema.anyOf))
+          ? flattenDiscriminatedUnion(jsonSchema)
+          : jsonSchema;
+      }
+
+      return {
+        name: tool.name,
+        title: tool.title,
+        description: tool.description,
+        inputSchema,
+        annotations: tool.annotations,
+      };
+    })
   }));
 
   mcpServer.server.oninitialized = () => {
@@ -543,9 +444,6 @@ export async function createServer(config: ServerConfig = {}) {
   mcpServer.server.onerror = (error) => {
     logger.error('MCP server error', { error: error.message, stack: error.stack });
   };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (mcpServer as any).sessionManager = sessionManager;
 
   const summarizeResultForMetrics = (result: unknown): Record<string, unknown> | undefined => {
     if (!result || typeof result !== 'object') {
@@ -605,11 +503,12 @@ export async function createServer(config: ServerConfig = {}) {
   mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
     const sessionId = extra?.sessionId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const progressToken = (request.params as any)._meta?.progressToken as string | number | undefined;
 
     logger.info('Tool call received', { tool: name, args, sessionId });
 
     try {
-      // Route to appropriate resource handler
       const resourceType = getResourceTypeFromToolName(name);
       if (!resourceType) {
         throw new McpError(
@@ -618,29 +517,19 @@ export async function createServer(config: ServerConfig = {}) {
         );
       }
 
-      // Session tools don't need credentials, but we still create a client for consistency
-      const credentials = config.credentials || {};
-      let client: LogicMonitorClient | undefined;
+      const client = resourceType !== 'session' ? getClient() : undefined;
+      const handler = createResourceHandler(resourceType, client, sessionManager, sessionId);
 
-      if (resourceType !== 'session') {
-        const { lm_account, lm_bearer_token } = credentials;
-        if (!lm_account || !lm_bearer_token) {
-          throw new McpError(
-            ErrorCode.InvalidRequest,
-            'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-          );
-        }
-        client = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
-          timeoutMs: config.apiTimeoutMs
-        });
-      } else {
-        // For session operations, create a dummy client (not used but required by handler signature)
-        client = new LogicMonitorClient('dummy', 'dummy', logger, {
-          timeoutMs: config.apiTimeoutMs
+      // Wire MCP ProgressNotifications when the client supplies a progressToken
+      if (progressToken !== undefined) {
+        handler.setProgressCallback((progress: number, total: number) => {
+          mcpServer.server.notification({
+            method: 'notifications/progress',
+            params: { progressToken, progress, total }
+          }).catch(() => { /* client may have disconnected */ });
         });
       }
 
-      const handler = createResourceHandler(resourceType, client, sessionManager, sessionId);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await handler.handleOperation(args as any);
 
@@ -648,14 +537,12 @@ export async function createServer(config: ServerConfig = {}) {
       metricsManager.recordSuccess(name, summarizeResultForMetrics(result));
       logger.info('Tool call successful', { tool: name, sessionId });
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(result, null, 2)
-          } as TextContent
-        ]
+      const responseConfig = toolResponseConfigs[resourceType] || {
+        resourceName: resourceType,
+        resourceTitle: `LogicMonitor ${resourceType}`
       };
+
+      return buildToolResponse(args as BaseOperationArgs, result as OperationResult<unknown>, responseConfig);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Tool call failed', {
@@ -677,22 +564,26 @@ export async function createServer(config: ServerConfig = {}) {
 
       metricsManager.recordFailure(name, error as Error, failureMetadata);
 
+      // Protocol-level errors still throw as McpError
       if (error instanceof McpError) {
         throw error;
       }
 
-      if (error instanceof LogicMonitorApiError) {
-        const apiMessage = `LogicMonitor API error${error.status ? ` (status ${error.status})` : ''}${error.code ? ` [${error.code}]` : ''}: ${error.message}`;
-        throw new McpError(
-          ErrorCode.InternalError,
-          apiMessage
-        );
-      }
+      // API and application errors return as tool content with isError flag
+      // so LLM clients can see the error details and decide how to proceed
+      const errorMessage = error instanceof LogicMonitorApiError
+        ? `LogicMonitor API error${error.status ? ` (status ${error.status})` : ''}${error.code ? ` [${error.code}]` : ''}: ${error.message}`
+        : (message || 'An unknown error occurred');
 
-      throw new McpError(
-        ErrorCode.InternalError,
-        message || 'An unknown error occurred'
-      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessage
+          }
+        ],
+        isError: true
+      };
     }
   });
 
@@ -721,33 +612,42 @@ export async function createServer(config: ServerConfig = {}) {
    */
   function createResourceHandler(
     resourceType: ResourceType,
-    client: LogicMonitorClient,
-    sessionManager: SessionManager,
+    client: LogicMonitorClient | undefined,
+    sessionMgr: SessionManager,
     sessionId?: string
   ) {
+    if (resourceType === 'session') {
+      return new SessionHandler(sessionMgr, sessionId);
+    }
+
+    if (!client) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
+      );
+    }
+
     switch (resourceType) {
       case 'device':
-        return new DeviceHandler(client, sessionManager, sessionId);
+        return new DeviceHandler(client, sessionMgr, sessionId);
       case 'deviceGroup':
-        return new DeviceGroupHandler(client, sessionManager, sessionId);
+        return new DeviceGroupHandler(client, sessionMgr, sessionId);
       case 'website':
-        return new WebsiteHandler(client, sessionManager, sessionId);
+        return new WebsiteHandler(client, sessionMgr, sessionId);
       case 'websiteGroup':
-        return new WebsiteGroupHandler(client, sessionManager, sessionId);
+        return new WebsiteGroupHandler(client, sessionMgr, sessionId);
       case 'collector':
-        return new CollectorHandler(client, sessionManager, sessionId);
+        return new CollectorHandler(client, sessionMgr, sessionId);
       case 'alert':
-        return new AlertHandler(client, sessionManager, sessionId);
+        return new AlertHandler(client, sessionMgr, sessionId);
       case 'user':
-        return new UserHandler(client, sessionManager, sessionId);
+        return new UserHandler(client, sessionMgr, sessionId);
       case 'dashboard':
-        return new DashboardHandler(client, sessionManager, sessionId);
+        return new DashboardHandler(client, sessionMgr, sessionId);
       case 'collectorGroup':
-        return new CollectorGroupHandler(client, sessionManager, sessionId);
+        return new CollectorGroupHandler(client, sessionMgr, sessionId);
       case 'deviceData':
-        return new DeviceDataHandler(client, sessionManager, sessionId);
-      case 'session':
-        return new SessionHandler(sessionManager, sessionId);
+        return new DeviceDataHandler(client, sessionMgr, sessionId);
       default:
         throw new McpError(
           ErrorCode.MethodNotFound,
@@ -756,5 +656,5 @@ export async function createServer(config: ServerConfig = {}) {
     }
   }
 
-  return mcpServer;
+  return { server: mcpServer, sessionManager };
 }

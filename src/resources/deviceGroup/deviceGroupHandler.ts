@@ -7,7 +7,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMDeviceGroup } from '../../types/logicmonitor.js';
@@ -134,7 +133,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupsInput = isBatch ? (validated as any).groups : [validated];
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       groupsInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (group: Record<string, unknown>) => this.client.createDeviceGroup(group as any),
@@ -257,7 +256,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
       updates: args.updates || item
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       updateOps,
       async ({ groupId, updates }) => this.client.updateDeviceGroup(groupId, updates),
       {
@@ -299,7 +298,7 @@ export class DeviceGroupHandler extends ResourceHandler<LMDeviceGroup> {
       deleteChildren: (args as any).deleteChildren ?? false
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       deleteOps,
       async ({ groupId, deleteChildren }) => this.client.deleteDeviceGroup(groupId, { deleteChildren }),
       {

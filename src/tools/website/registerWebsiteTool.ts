@@ -2,25 +2,23 @@
  * Website Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebsiteOperationArgsSchema } from '../../resources/website/websiteZodSchemas.js';
-import { WebsiteHandler } from '../../resources/website/websiteHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_website tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create a WebsiteHandler instance
+ * Registers the lm_website tool with the MCP server and returns its metadata
  */
 export function registerWebsiteTool(
   server: McpServer,
-  createHandler: () => WebsiteHandler
-): void {
-  server.registerTool(
-    'lm_website',
-    {
-      title: 'LogicMonitor Website Management',
-      description: `Manage LogicMonitor websites. Supports the following operations:
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor Website Management',
+    description: `Manage LogicMonitor websites. Supports the following operations:
 - list: Retrieve websites with optional filtering and field selection
 - get: Get a specific website by ID
 - create: Create one or more websites (supports batch operations)
@@ -33,18 +31,10 @@ Batch operations support:
 - Explicit arrays via 'websites' parameter
 - applyToPrevious: Reference session variables for batch operations
 - filter: Apply operations to all websites matching a filter`,
-      inputSchema: WebsiteOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      return buildToolResponse(args, result, {
-        resourceName: 'website',
-        resourceTitle: 'LogicMonitor website'
-      });
-    }
-  );
+    inputSchema: WebsiteOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+  };
+  server.registerTool('lm_website', toolDef, handler);
+  return { name: 'lm_website', ...toolDef };
 }
 

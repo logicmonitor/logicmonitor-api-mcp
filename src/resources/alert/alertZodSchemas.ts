@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { McpError, ErrorCode } from '@socotra/modelcontextprotocol-sdk/types.js';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 // Base schemas for alert list operation
 export const AlertListArgsSchema = z.object({

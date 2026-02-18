@@ -5,8 +5,9 @@ import fs from 'fs';
 import express from 'express';
 import winston from 'winston';
 import { createServer } from './server.js';
-import { StdioServerTransport } from '@socotra/modelcontextprotocol-sdk/server/stdio.js';
-import { StreamableHTTPServerTransport } from '@socotra/modelcontextprotocol-sdk/server/streamableHttp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { randomUUID } from 'crypto';
 import { APP_INFO } from './appInfo.js';
 import { SessionManager } from './session/sessionManager.js';
@@ -78,7 +79,7 @@ async function startHttpServer() {
 
   type HttpSessionContext = {
     transport: StreamableHTTPServerTransport;
-    server: Awaited<ReturnType<typeof createServer>>;
+    server: McpServer;
     clientId: string;
     credentialsKey: string;
     sessionId?: string;
@@ -157,7 +158,7 @@ async function startHttpServer() {
           }
         });
 
-        const mcpServer = await createServer({
+        const { server: mcpServer, sessionManager: serverSessionManager } = await createServer({
           logger,
           credentials,
           clientId,
@@ -165,9 +166,7 @@ async function startHttpServer() {
           apiTimeoutMs: config.logicMonitor.apiTimeoutMs,
         });
 
-        const sessionManager =
-          ((mcpServer as unknown) as { sessionManager?: SessionManager }).sessionManager ??
-          new SessionManager();
+        const sessionManager = serverSessionManager;
 
         contextRef = {
           transport,
@@ -326,7 +325,7 @@ async function startStdioServer() {
   
   stdioLogger.error(`Starting STDIO mode with account: ${config.logicMonitor.account}`);
   
-  const server = await createServer({ 
+  const { server } = await createServer({ 
     logger: stdioLogger,
     credentials: {
       lm_account: config.logicMonitor.account,

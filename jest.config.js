@@ -11,12 +11,15 @@ export default {
       {
         useESM: true,
         tsconfig: {
+          target: 'ES2022',
           module: 'ESNext',
           moduleResolution: 'node',
           esModuleInterop: true,
+          resolveJsonModule: true,
           rootDir: '.',
           strict: false,
         },
+        diagnostics: false,
       },
     ],
   },

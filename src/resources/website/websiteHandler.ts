@@ -7,7 +7,6 @@ import { ResourceHandler } from '../base/resourceHandler.js';
 import { BatchOperationResolver } from '../base/batchResolver.js';
 import { LogicMonitorClient } from '../../api/client.js';
 import { SessionManager } from '../../session/sessionManager.js';
-import { batchProcessor } from '../../utils/batchProcessor.js';
 import { sanitizeFields } from '../../utils/fieldMetadata.js';
 import { throwBatchFailure } from '../../utils/batchUtils.js';
 import type { LMWebsite } from '../../types/logicmonitor.js';
@@ -111,7 +110,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const websitesInput = isBatch ? (validated as any).websites : [validated];
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       websitesInput,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (website: Record<string, unknown>) => this.client.createWebsite(website as any),
@@ -228,7 +227,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
       updates: args.updates || item
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       updateOps,
       async ({ websiteId, updates }) => this.client.updateWebsite(websiteId, updates),
       {
@@ -267,7 +266,7 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
       websiteId: item.id || item.websiteId
     }));
 
-    const batchResult = await batchProcessor.processBatch(
+    const batchResult = await this.processBatch(
       deleteOps,
       async ({ websiteId }) => this.client.deleteWebsite(websiteId),
       {

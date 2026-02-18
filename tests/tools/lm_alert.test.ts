@@ -63,6 +63,7 @@ describe('lm_alert', () => {
         operation: 'list',
         filter: 'cleared:false',
         size: 10,
+        autoPaginate: false,
       });
 
       assertToolSuccess(result);

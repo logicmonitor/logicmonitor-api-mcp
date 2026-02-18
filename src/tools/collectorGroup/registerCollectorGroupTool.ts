@@ -2,25 +2,23 @@
  * Collector Group Tool Registration using MCP SDK's high-level registerTool API
  */
 
-import { McpServer } from '@socotra/modelcontextprotocol-sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { CollectorGroupOperationArgsSchema } from '../../resources/collectorGroup/collectorGroupZodSchemas.js';
-import { CollectorGroupHandler } from '../../resources/collectorGroup/collectorGroupHandler.js';
-import { buildToolResponse } from '../utils/tool-response.js';
+import type { ToolRegistration } from '../types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolCallback = (...args: any[]) => Promise<any>;
 
 /**
- * Registers the lm_collector_group tool with the MCP server
- * @param server - The MCP server instance
- * @param createHandler - Factory function to create a CollectorGroupHandler instance
+ * Registers the lm_collector_group tool with the MCP server and returns its metadata
  */
 export function registerCollectorGroupTool(
   server: McpServer,
-  createHandler: () => CollectorGroupHandler
-): void {
-  server.registerTool(
-    'lm_collector_group',
-    {
-      title: 'LogicMonitor Collector Group Management',
-      description: `Manage LogicMonitor collector groups. Supports the following operations:
+  handler: ToolCallback
+): ToolRegistration {
+  const toolDef = {
+    title: 'LogicMonitor Collector Group Management',
+    description: `Manage LogicMonitor collector groups. Supports the following operations:
 - list: Retrieve collector groups with optional filtering and field selection
 - get: Get a specific collector group by ID
 - create: Create one or more collector groups (supports batch operations)
@@ -33,18 +31,10 @@ Batch operations support:
 - Explicit arrays via 'groups' parameter
 - applyToPrevious: Reference session variables for batch operations
 - filter: Apply operations to all groups matching a filter`,
-      inputSchema: CollectorGroupOperationArgsSchema
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (args: any) => {
-      const handler = createHandler();
-      const result = await handler.handleOperation(args);
-
-      return buildToolResponse(args, result, {
-        resourceName: 'collectorGroup',
-        resourceTitle: 'LogicMonitor collector group'
-      });
-    }
-  );
+    inputSchema: CollectorGroupOperationArgsSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+  };
+  server.registerTool('lm_collector_group', toolDef, handler);
+  return { name: 'lm_collector_group', ...toolDef };
 }
 
