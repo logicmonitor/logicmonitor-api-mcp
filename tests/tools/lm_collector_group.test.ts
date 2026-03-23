@@ -219,10 +219,10 @@ describe('lm_collector_group', () => {
     });
 
     test('should validate error handling for missing required fields', async () => {
+      // Create schema requires `name` when `groups` is not provided; description is optional (matches LM API).
       const result = await client.callTool('lm_collector_group', {
         operation: 'create',
-        name: 'Invalid Group',
-        // Missing: description
+        description: 'Missing required name',
       });
 
       expect(result.success).toBe(false);
