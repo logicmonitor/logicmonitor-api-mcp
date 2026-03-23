@@ -9,6 +9,7 @@ import {
   extractToolData,
   generateTestResourceName,
   isValidLMId,
+  retry,
   waitForIndexing,
 } from '../utils/testHelpers.js';
 import {
@@ -253,12 +254,28 @@ describe('lm_device_group', () => {
       });
       createdGroupIds.push(group1.id, group2.id);
 
-      // Wait for groups to be indexed before filtering
-      await waitForIndexing();
+      // Exact names + OR avoids wildcard quirks; poll until list matches (LM search can lag create).
+      const batchFilter = `name:"${prefix}-1"||name:"${prefix}-2"`;
+      await retry(
+        async () => {
+          const check = await client.callTool('lm_device_group', {
+            operation: 'list',
+            filter: batchFilter,
+            size: 50,
+            autoPaginate: false,
+          });
+          assertToolSuccess(check);
+          const checkData = extractToolData<{ items: Array<{ id: number }> }>(check);
+          if ((checkData.items?.length ?? 0) < 2) {
+            throw new Error('device groups not yet visible to list/filter');
+          }
+        },
+        { maxAttempts: 15, delayMs: 2000 }
+      );
 
       const result = await client.callTool('lm_device_group', {
         operation: 'update',
-        filter: `name:"${prefix}*"`,
+        filter: batchFilter,
         updates: {
           description: 'Batch updated',
         },
