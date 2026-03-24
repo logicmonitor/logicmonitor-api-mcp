@@ -33,7 +33,7 @@
   "license": "MPL-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/logicmonitor/logicmonitor-api-mcp.git"
+    "url": "https://github.com/logicmonitor/logicmonitor-api-mcp.git"
   },
   "bugs": {
     "url": "https://github.com/logicmonitor/logicmonitor-api-mcp/issues"
