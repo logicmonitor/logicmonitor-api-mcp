@@ -10,7 +10,6 @@ import {
   generateTestResourceName,
   isValidLMId,
   retry,
-  waitForIndexing,
 } from '../utils/testHelpers.js';
 import {
   discoverResources,
@@ -81,24 +80,26 @@ describe('lm_device_group', () => {
     });
 
     test('should list device groups with filter', async () => {
-      // Create a test group first
       const testGroup = await createTestDeviceGroup(client, {
         parentId: resources.rootDeviceGroupId,
       });
       createdGroupIds.push(testGroup.id);
 
-      // Wait for group to be indexed before filtering
-      await waitForIndexing();
-
-      const result = await client.callTool('lm_device_group', {
-        operation: 'list',
-        filter: `name:"${testGroup.name}"`,
-      });
-
-      assertToolSuccess(result);
-      const data = extractToolData<{ items: Array<{ id: number; name: string }> }>(result);
-
-      expect(data.items.some(g => g.id === testGroup.id)).toBe(true);
+      // Poll until LM's search index reflects the new group
+      await retry(
+        async () => {
+          const result = await client.callTool('lm_device_group', {
+            operation: 'list',
+            filter: `name:"${testGroup.name}"`,
+          });
+          assertToolSuccess(result);
+          const data = extractToolData<{ items: Array<{ id: number; name: string }> }>(result);
+          if (!data.items.some(g => g.id === testGroup.id)) {
+            throw new Error('device group not yet visible to list/filter');
+          }
+        },
+        { maxAttempts: 15, delayMs: 2000 }
+      );
     });
 
     test('should list device groups with field selection', async () => {
