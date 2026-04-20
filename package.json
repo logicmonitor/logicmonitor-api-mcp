@@ -46,7 +46,8 @@
     "dist/**/*",
     "README.md",
     "LICENSE",
-    "examples/**/*"
+    "examples/**/*",
+    "plugins/logicmonitor/**/*"
   ],
   "dependencies": {
     "@eslint/js": "^10.0.1",

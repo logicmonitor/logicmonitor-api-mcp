@@ -144,13 +144,9 @@ export async function fetchPortalSession(
       let message = `Failed to load portal session for '${portal}' from ${url}.`;
 
       if (status === 404) {
-        let availablePortals: string[] = [];
-
-        try {
-          availablePortals = await fetchAvailablePortals(credentials, timeoutMs);
-        } catch {
-          availablePortals = [];
-        }
+        const availablePortals = await fetchAvailablePortals(credentials, timeoutMs).catch(
+          () => []
+        );
 
         message = availablePortals.length > 0
           ? `No active portal session for '${portal}' was found at ${baseUrl}. Loaded portals: ${availablePortals.join(', ')}. Refresh the target LogicMonitor portal page while the listener is running, or query one of the already loaded portals instead.`

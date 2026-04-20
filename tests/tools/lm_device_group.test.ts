@@ -85,22 +85,28 @@ describe('lm_device_group', () => {
       });
       createdGroupIds.push(testGroup.id);
 
-      // Poll until LM's search index reflects the new group
-      await retry(
+      // LogicMonitor can take about 30 seconds before new device groups are filter-visible.
+      const data = await retry(
         async () => {
           const result = await client.callTool('lm_device_group', {
             operation: 'list',
-            filter: `name:"${testGroup.name}"`,
+            filter: `id:${testGroup.id}`,
+            size: 50,
+            autoPaginate: false,
           });
+
           assertToolSuccess(result);
           const data = extractToolData<{ items: Array<{ id: number; name: string }> }>(result);
           if (!data.items.some(g => g.id === testGroup.id)) {
             throw new Error('device group not yet visible to list/filter');
           }
+          return data;
         },
-        { maxAttempts: 15, delayMs: 2000 }
+        { maxAttempts: 45, delayMs: 1000, backoffMultiplier: 1 }
       );
-    });
+
+      expect(data.items.some(g => g.id === testGroup.id)).toBe(true);
+    }, 60000);
 
     test('should list device groups with field selection', async () => {
       const result = await client.callTool('lm_device_group', {
@@ -255,42 +261,36 @@ describe('lm_device_group', () => {
       });
       createdGroupIds.push(group1.id, group2.id);
 
-      // Exact names + OR avoids wildcard quirks; poll until list matches (LM search can lag create).
-      const batchFilter = `name:"${prefix}-1"||name:"${prefix}-2"`;
-      await retry(
+      const batchFilter = `id:${group1.id}||id:${group2.id}`;
+
+      const data = await retry(
         async () => {
-          const check = await client.callTool('lm_device_group', {
-            operation: 'list',
+          const result = await client.callTool('lm_device_group', {
+            operation: 'update',
             filter: batchFilter,
-            size: 50,
-            autoPaginate: false,
+            updates: {
+              description: 'Batch updated',
+            },
           });
-          assertToolSuccess(check);
-          const checkData = extractToolData<{ items: Array<{ id: number }> }>(check);
-          if ((checkData.items?.length ?? 0) < 2) {
-            throw new Error('device groups not yet visible to list/filter');
+
+          assertToolSuccess(result);
+          const data = extractToolData<{
+            success: boolean;
+            summary: { succeeded: number };
+          }>(result);
+
+          if ((data.summary?.succeeded ?? 0) < 2) {
+            throw new Error('device groups not yet visible to filter-based batch update');
           }
+
+          return data;
         },
-        { maxAttempts: 15, delayMs: 2000 }
+        { maxAttempts: 45, delayMs: 1000, backoffMultiplier: 1 }
       );
-
-      const result = await client.callTool('lm_device_group', {
-        operation: 'update',
-        filter: batchFilter,
-        updates: {
-          description: 'Batch updated',
-        },
-      });
-
-      assertToolSuccess(result);
-      const data = extractToolData<{ 
-        success: boolean;
-        summary: { succeeded: number };
-      }>(result);
 
       expect(data.success).toBe(true);
       expect(data.summary.succeeded).toBeGreaterThanOrEqual(2);
-    });
+    }, 90000);
   });
 
   describe('Delete Operations', () => {
@@ -366,4 +366,3 @@ describe('lm_device_group', () => {
     });
   });
 });
-

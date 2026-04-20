@@ -1,8 +1,14 @@
 #!/bin/zsh
 set -euo pipefail
 
-PROJECT_ROOT="/Users/tyler.wisdom/Desktop/Projects/logicmonitor-api-mcp"
-ENV_FILE="$PROJECT_ROOT/.env.codex.local"
+SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="${LM_CODEX_ENV_FILE:-$PROJECT_ROOT/.env.codex.local}"
+
+if [[ "$ENV_FILE" != /* ]]; then
+  ENV_FILE="$PROJECT_ROOT/$ENV_FILE"
+fi
+
 LM_MCP_ENTRYPOINT="$PROJECT_ROOT/dist/index.js"
 
 if [[ ! -f "$LM_MCP_ENTRYPOINT" ]]; then

@@ -58,13 +58,10 @@ export async function resolveCredentialsForOperation(
   const resolvedPortal = explicitPortal ?? sessionDefaultPortal ?? configuredDefaultPortal;
 
   if (!resolvedPortal) {
-    let availablePortals: string[] = [];
-
-    try {
-      availablePortals = await fetchAvailablePortals(baseCredentials, options.timeoutMs);
-    } catch {
-      availablePortals = [];
-    }
+    const availablePortals = await fetchAvailablePortals(
+      baseCredentials,
+      options.timeoutMs
+    ).catch(() => []);
 
     const availablePortalsSuffix = availablePortals.length > 0
       ? ` Available portals: ${availablePortals.join(', ')}.`

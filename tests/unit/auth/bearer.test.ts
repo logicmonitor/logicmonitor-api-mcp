@@ -110,6 +110,7 @@ describe('BearerAuthValidator', () => {
     const result = await v.validate(TOKEN_A);
     expect(result.success).toBe(true);
     expect(result.credentials).toEqual({
+      kind: 'bearer',
       lm_account: 'acme',
       lm_bearer_token: 'lm-bearer-xyz',
     });

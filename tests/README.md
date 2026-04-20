@@ -7,6 +7,7 @@ This directory contains the test suite for the LogicMonitor MCP server. Tests ar
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
 - [Running Tests](#running-tests)
+- [Plugin Contract Tests](#plugin-contract-tests)
 - [Test Structure](#test-structure)
 - [Writing New Tests](#writing-new-tests)
 - [GitHub Actions CI/CD](#github-actions-cicd)
@@ -59,24 +60,6 @@ npm run build
 npm test
 ```
 
-### Run Tests in Watch Mode
-
-```bash
-npm run test:watch
-```
-
-### Run Integration Tests Only
-
-```bash
-npm run test:integration
-```
-
-### Run with Coverage
-
-```bash
-npm run test:coverage
-```
-
 ### Run Specific Test File
 
 ```bash
@@ -88,6 +71,12 @@ npm test -- tests/tools/lm_device.test.ts
 ```bash
 npm test -- --verbose
 ```
+
+## Plugin Contract Tests
+
+Plugin contract tests live under `tests/unit/plugin/logicmonitor`.
+
+These tests are local and file-based, so they validate the plugin scaffold, launchers, skills, and docs without requiring live LogicMonitor credentials or portal access.
 
 ## Test Structure
 
@@ -374,4 +363,3 @@ For issues or questions:
 - Check existing test files for examples
 - Review the main project README
 - Open an issue in the repository
-

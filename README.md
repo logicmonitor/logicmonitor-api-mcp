@@ -11,6 +11,16 @@
 
 A Model Context Protocol (MCP) server that provides secure access to the LogicMonitor API, enabling AI assistants to manage monitoring infrastructure through natural language commands.
 
+## Codex Plugin
+
+This repository now includes a repo-local Codex Plugin scaffold at `plugins/logicmonitor/`.
+
+- `Standard` mode is the shareable default setup.
+- `Advanced local` mode uses this checkout's listener-backed workflow.
+- The MCP server remains the source of truth for behavior and API surface.
+
+See `plugins/logicmonitor/README.md` for plugin usage and setup checks.
+
 ## Features
 
 - **Comprehensive Resource Management**: Devices, device groups, websites, website groups, collectors, alerts, users, dashboards, collector groups, device metrics, SDTs, and OpsNotes

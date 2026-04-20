@@ -10,6 +10,59 @@ import {
 } from '../utils/testHelpers.js';
 import { generateUserPayload } from '../utils/fixtures.js';
 
+type LogicMonitorRole = {
+  id: number;
+  name?: string;
+};
+
+async function discoverTestRoleIds(): Promise<number[]> {
+  const account = global.testConfig.lmAccount;
+  const token = global.testConfig.lmBearerToken;
+
+  if (!account || !token) {
+    throw new Error('LM_ACCOUNT and LM_BEARER_TOKEN are required for live user tests');
+  }
+
+  const response = await fetch(
+    `https://${account}.logicmonitor.com/santaba/rest/setting/roles?size=100&fields=id,name`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Version': '3',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to list roles for user tests: ${response.status} ${response.statusText}`);
+  }
+
+  const payload = await response.json() as { items?: LogicMonitorRole[] };
+  const roles = Array.isArray(payload.items)
+    ? payload.items.filter((role): role is LogicMonitorRole => typeof role?.id === 'number')
+    : [];
+
+  const preferredNames = ['nopermissions', 'noperms', 'no_access', 'readonly', 'manager'];
+
+  let selected: LogicMonitorRole | undefined;
+  for (const preferredName of preferredNames) {
+    selected = roles.find((role) => String(role.name ?? '').toLowerCase() === preferredName);
+    if (selected) {
+      break;
+    }
+  }
+
+  selected ??= roles.find((role) => String(role.name ?? '').toLowerCase() !== 'administrator');
+  selected ??= roles[0];
+
+  if (!selected) {
+    throw new Error('No LogicMonitor roles available for live user tests');
+  }
+
+  console.log(`  - Selected Role: ${selected.id} (${selected.name ?? 'unnamed'})`);
+  return [selected.id];
+}
+
 describe('lm_user', () => {
   let client: TestMCPClient;
   let createdUserIds: number[] = [];
@@ -17,9 +70,7 @@ describe('lm_user', () => {
 
   beforeAll(async () => {
     client = await createTestClient('lm-user-test-session');
-    
-    // Use role ID 28 (no_access role) for test users
-    availableRoles = [28];
+    availableRoles = await discoverTestRoleIds();
 
     console.log('Test environment:');
     console.log(`  - Available Roles: ${availableRoles.length}`);
@@ -367,4 +418,3 @@ describe('lm_user', () => {
     });
   });
 });
-

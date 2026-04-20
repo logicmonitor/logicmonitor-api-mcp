@@ -152,18 +152,17 @@ export function generateUserPayload(options: {
 } = {}) {
   const timestamp = Date.now();
   const username = options.username || `mcp-test-user-${timestamp}`;
-  
+
+  if (!options.roles || options.roles.length === 0) {
+    throw new Error('generateUserPayload requires explicit roles for the target LogicMonitor portal');
+  }
+
   // Convert roles to the correct format if needed
   let roles: Array<{ id: number }>;
-  if (options.roles) {
-    if (typeof options.roles[0] === 'number') {
-      // Convert number[] to Array<{ id: number }>
-      roles = (options.roles as number[]).map(id => ({ id }));
-    } else {
-      roles = options.roles as Array<{ id: number }>;
-    }
+  if (typeof options.roles[0] === 'number') {
+    roles = (options.roles as number[]).map(id => ({ id }));
   } else {
-    roles = [{ id: 28 }]; // Default to no_access role
+    roles = options.roles as Array<{ id: number }>;
   }
   
   return {
@@ -206,6 +205,7 @@ export function generateDashboardPayload(options: {
   name?: string;
   groupId?: number;
   description?: string;
+  sharable?: boolean;
 } = {}) {
   const name = options.name || generateTestResourceName('dashboard');
   
@@ -217,7 +217,7 @@ export function generateDashboardPayload(options: {
     widgetTokens: [
       { name: 'test.resource', value: 'true' },
     ],
-    sharable: false,
+    sharable: options.sharable ?? true,
   };
 }
 
@@ -258,4 +258,3 @@ export const FIELD_SELECTIONS = {
     full: '*',
   },
 };
-

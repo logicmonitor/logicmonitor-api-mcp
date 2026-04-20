@@ -1,0 +1,32 @@
+{
+  "name": "logicmonitor",
+  "version": "0.1.0",
+  "description": "LogicMonitor Codex plugin for MCP access, setup checks, and LM-focused workflows.",
+  "homepage": "https://github.com/tylerwisdom-logimon/logicmonitor-api-mcp",
+  "repository": "https://github.com/tylerwisdom-logimon/logicmonitor-api-mcp",
+  "license": "MPL-2.0",
+  "keywords": [
+    "logicmonitor",
+    "mcp",
+    "codex",
+    "observability",
+    "monitoring"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "LogicMonitor",
+    "shortDescription": "Use LogicMonitor MCP from Codex",
+    "longDescription": "A Codex plugin for LogicMonitor that wraps the MCP server with safer setup guidance, standard and advanced-local launch modes, and LM-focused skills.",
+    "developerName": "LogicMonitor",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/tylerwisdom-logimon/logicmonitor-api-mcp",
+    "defaultPrompt": [
+      "Help me inspect LogicMonitor data, check setup, or use the LM MCP server safely."
+    ]
+  }
+}

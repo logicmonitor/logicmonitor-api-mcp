@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "logicmonitor": {
+      "command": "zsh",
+      "args": [
+        "./scripts/launch.sh"
+      ],
+      "cwd": "."
+    }
+  }
+}
