@@ -13,15 +13,60 @@ export type AuthMode = z.infer<typeof AuthModeSchema>;
 export const LogFormatSchema = z.enum(['json', 'simple']);
 export type LogFormat = z.infer<typeof LogFormatSchema>;
 
+export const CredentialMappingEntrySchema = z.union([
+  z.object({
+    account: z.string().min(1),
+    token: z.string().min(1),
+  }),
+  z.object({
+    portal: z.string().min(1).optional(),
+    listenerBaseUrl: z.string().min(1).optional(),
+  }).superRefine((data, ctx) => {
+    if (!data.portal && !data.listenerBaseUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Provide portal, listenerBaseUrl, or both for listener-based credential mapping',
+        path: ['portal'],
+      });
+    }
+  })
+]);
+export type CredentialMappingEntry = z.infer<typeof CredentialMappingEntrySchema>;
+
 // Credential mapping schema
 export const CredentialMappingSchema = z.record(
   z.string(),
-  z.object({
-    account: z.string(),
-    token: z.string(),
-  })
+  CredentialMappingEntrySchema
 );
 export type CredentialMapping = z.infer<typeof CredentialMappingSchema>;
+
+export const LogicMonitorConfigSchema = z.object({
+  account: z.string().optional(),
+  bearerToken: z.string().optional(),
+  portal: z.string().optional(),
+  sessionListenerBaseUrl: z.string().optional(),
+  apiTimeoutMs: z.number().int().min(1000).default(CONFIG_DEFAULTS.lmApiTimeoutMs),
+}).superRefine((data, ctx) => {
+  const hasBearer = Boolean(data.account || data.bearerToken);
+  const hasSession = Boolean(data.portal || data.sessionListenerBaseUrl);
+
+  if (hasBearer && !(data.account && data.bearerToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'LM_ACCOUNT and LM_BEARER_TOKEN are required together',
+      path: ['account'],
+    });
+  }
+
+  if (hasBearer && hasSession) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Configure either bearer credentials or session credentials, not both',
+      path: [],
+    });
+  }
+});
+export type LogicMonitorConfig = z.infer<typeof LogicMonitorConfigSchema>;
 
 // Main configuration schema
 export const ConfigSchema = z.object({
@@ -81,11 +126,7 @@ export const ConfigSchema = z.object({
   ),
 
   // LogicMonitor
-  logicMonitor: z.object({
-    account: z.string().optional(),
-    bearerToken: z.string().optional(),
-    apiTimeoutMs: z.number().int().min(1000).default(CONFIG_DEFAULTS.lmApiTimeoutMs),
-  }),
+  logicMonitor: LogicMonitorConfigSchema,
 
   // Security
   security: z.object({

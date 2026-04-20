@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 const batchOptionsSchema = z.object({
   maxConcurrent: z.number().min(1).max(50).optional().describe('Max parallel API requests (default 5)'),
@@ -40,6 +41,7 @@ const singleSdtSchema = z.object({
 // List operation schema
 export const SdtListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression, e.g. "type:ResourceSDT", "isEffective:true". See health://logicmonitor/fields/sdt for valid field names.'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
   offset: z.number().min(0).optional().describe('Number of items to skip for pagination (default 0)'),
@@ -50,6 +52,7 @@ export const SdtListArgsSchema = z.object({
 // Get operation schema
 export const SdtGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.string().optional().describe('SDT ID (string format, e.g. "R_42", "D_15")'),
   fields: z.string().optional().describe('Comma-separated list of fields to return')
 }).strict();
@@ -57,6 +60,7 @@ export const SdtGetArgsSchema = z.object({
 // Create operation schema
 export const SdtCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   type: z.string().optional().describe('SDT target resource type: ResourceSDT (device), ResourceGroupSDT (device group), WebsiteSDT, WebsiteGroupSDT, CollectorSDT, DeviceDataSourceSDT, etc. Required when sdts is not provided.'),
   sdtType: z.string().optional().describe('Schedule type: oneTime, daily, weekly, monthly, or monthlyByWeek. Defaults to oneTime.'),
   startDateTime: z.number().optional().describe('Start time in epoch milliseconds'),
@@ -95,6 +99,7 @@ export const SdtCreateArgsSchema = z.object({
 // Update operation schema
 export const SdtUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.string().optional().describe('SDT ID (string format, e.g. "R_42")'),
   sdtType: z.string().optional().describe('Updated schedule type'),
   startDateTime: z.number().optional().describe('Updated start time in epoch milliseconds'),
@@ -119,6 +124,7 @@ export const SdtUpdateArgsSchema = z.object({
 // Delete operation schema
 export const SdtDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.string().optional().describe('SDT ID (string format, e.g. "R_42")'),
   ids: z.array(z.string()).optional().describe('Array of SDT IDs to delete in batch.'),
   sdts: z.array(z.object({ id: z.string().optional().describe('SDT ID') }).passthrough()).min(1).optional().describe('Array of SDT references for batch deletion. Each must include id.'),

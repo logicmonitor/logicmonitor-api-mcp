@@ -8,6 +8,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer, ServerConfig } from '../../src/server.js';
 import { SessionManager } from '../../src/session/sessionManager.js';
 import winston from 'winston';
+import type { LMCredentials } from '../../src/auth/lmCredentials.js';
 
 export interface ToolCallResult {
   success: boolean;
@@ -22,11 +23,10 @@ export class TestMCPClient {
   private sessionManager: SessionManager;
   private sessionId: string;
   private logger: winston.Logger;
-  private _credentials: { lmAccount: string; lmBearerToken: string };
+  private _credentials: LMCredentials;
 
   constructor(
-    lmAccount: string,
-    lmBearerToken: string,
+    credentials: LMCredentials,
     sessionId: string = 'test-session'
   ) {
     this.sessionId = sessionId;
@@ -38,18 +38,12 @@ export class TestMCPClient {
       transports: [new winston.transports.Console({ silent: process.env.LOG_LEVEL !== 'debug' })],
     });
 
-    this._credentials = {
-      lmAccount,
-      lmBearerToken,
-    };
+    this._credentials = credentials;
   }
 
   async init(): Promise<void> {
     const config: ServerConfig = {
-      credentials: {
-        lm_account: this._credentials.lmAccount,
-        lm_bearer_token: this._credentials.lmBearerToken,
-      },
+      credentials: this._credentials,
       sessionManager: this.sessionManager,
       logger: this.logger,
     };
@@ -190,8 +184,11 @@ export class TestMCPClient {
  */
 export async function createTestClient(sessionId?: string): Promise<TestMCPClient> {
   const client = new TestMCPClient(
-    global.testConfig.lmAccount,
-    global.testConfig.lmBearerToken,
+    {
+      kind: 'bearer',
+      lm_account: global.testConfig.lmAccount,
+      lm_bearer_token: global.testConfig.lmBearerToken,
+    },
     sessionId
   );
   

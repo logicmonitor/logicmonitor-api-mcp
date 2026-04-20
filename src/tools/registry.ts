@@ -23,6 +23,9 @@ export type { ToolRegistration } from './types.js';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ToolCallback = (...args: any[]) => Promise<any>;
 
+const LISTENER_PORTAL_DESCRIPTION_SUFFIX = `\n\nPortal targeting: when listener-based auth is configured, pass the optional "portal" argument to target a specific portal. If omitted, the server uses lm_session defaultPortal, then LM_PORTAL if configured.`;
+const SESSION_PORTAL_DESCRIPTION_SUFFIX = `\n\nPortal targeting: use lm_session get to inspect availablePortals and portalScopes. Set key="defaultPortal" via lm_session create/update to establish a conversational default, or pass portal to inspect or clear a specific portal scope.`;
+
 /**
  * All tool definitions as a flat data array.
  * Order is preserved from the original individual registration files.
@@ -341,6 +344,17 @@ Batch operations support:
   },
 ];
 
+function decorateToolDefinition(definition: ToolRegistration): ToolRegistration {
+  const suffix = definition.name === 'lm_session'
+    ? SESSION_PORTAL_DESCRIPTION_SUFFIX
+    : LISTENER_PORTAL_DESCRIPTION_SUFFIX;
+
+  return {
+    ...definition,
+    description: definition.description ? `${definition.description}${suffix}` : suffix,
+  };
+}
+
 /**
  * Registers all tools from TOOL_DEFINITIONS with the MCP server and returns
  * the full ToolRegistration[] array for use in ListTools response building.
@@ -350,9 +364,10 @@ export function registerAllTools(
   handler: ToolCallback
 ): ToolRegistration[] {
   return TOOL_DEFINITIONS.map((def) => {
-    const { name, ...toolDef } = def;
+    const decorated = decorateToolDefinition(def);
+    const { name, ...toolDef } = decorated;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     server.registerTool(name, toolDef as any, handler);
-    return def;
+    return decorated;
   });
 }

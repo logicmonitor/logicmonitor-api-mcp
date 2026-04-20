@@ -5,10 +5,12 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // List operation schema — .strict() rejects unknown parameters
 export const CollectorListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/collector for valid field names.'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
   offset: z.number().min(0).optional().describe('Number of items to skip for pagination (default 0)'),

@@ -2,26 +2,21 @@
  * Authentication types and interfaces
  */
 
+import type { LMCredentials } from './lmCredentials.js';
+
 export interface AuthResult {
   success: boolean;
   clientId?: string;
   error?: string;
-  credentials?: {
-    lm_account: string;
-    lm_bearer_token: string;
-  };
+  credentials?: LMCredentials;
 }
 
 export interface AuthContext {
   clientId: string;
   authMode: 'none' | 'bearer';
-  credentials: {
-    lm_account: string;
-    lm_bearer_token: string;
-  };
+  credentials: LMCredentials;
 }
 
 export interface AuthValidator {
   validate(token: string): Promise<AuthResult>;
 }
-

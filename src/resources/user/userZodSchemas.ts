@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const roleSchema = z.object({
@@ -56,6 +57,7 @@ const singleUpdateUserSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const UserListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/user for valid field names.'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
   offset: z.number().min(0).optional().describe('Number of items to skip for pagination (default 0)'),
@@ -66,6 +68,7 @@ export const UserListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const UserGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('User ID (preferred). Alias: userId'),
   userId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   fields: z.string().optional().describe('Comma-separated list of fields to return, e.g. "id,displayName"')
@@ -74,6 +77,7 @@ export const UserGetArgsSchema = z.object({
 // Create operation schema — .strict() rejects unknown parameters
 export const UserCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   username: z.string().optional().describe('Login username for the user (required for single create)'),
   email: z.string().email().optional().describe('Email address for the user (required for single create)'),
   firstName: z.string().optional().describe('First name of the user (required for single create)'),
@@ -135,6 +139,7 @@ export const UserCreateArgsSchema = z.object({
 // Update operation schema — .strict() rejects unknown parameters
 export const UserUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('User ID (preferred). Alias: userId'),
   userId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   username: z.string().optional().describe('Login username for the user'),
@@ -159,6 +164,7 @@ export const UserUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const UserDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('User ID (preferred). Alias: userId'),
   userId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   ids: z.array(z.number()).optional().describe('Array of user IDs to delete in batch'),

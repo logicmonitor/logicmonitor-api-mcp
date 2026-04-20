@@ -5,7 +5,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { AuthManager } from './index.js';
 import type { AuthContext } from './types.js';
-import type { LMCredentials } from './credentialMapper.js';
+import { getLmCredentialsFromHeaders } from './lmCredentials.js';
 
 // Extend Express Request type to include auth context
 declare global {
@@ -25,31 +25,8 @@ declare global {
  * 3. LM_ACCOUNT + LM_BEARER_TOKEN (default fallback)
  */
 export function createAuthMiddleware(authManager: AuthManager) {
-  const extractHeader = (value?: string | string[]): string | undefined =>
-    Array.isArray(value) ? value[0] : value;
-
-  const getLmCredentialsFromHeaders = (req: Request): { credentials?: LMCredentials; error?: string } => {
-    const account = extractHeader(req.headers['x-lm-account']);
-    const token = extractHeader(req.headers['x-lm-bearer-token']);
-
-    if ((account && !token) || (!account && token)) {
-      return { error: 'Both X-LM-Account and X-LM-Bearer-Token headers are required together.' };
-    }
-
-    if (account && token) {
-      return {
-        credentials: {
-          lm_account: account,
-          lm_bearer_token: token
-        }
-      };
-    }
-
-    return {};
-  };
-
   return async (req: Request, res: Response, next: NextFunction) => {
-    const { credentials: headerCredentials, error: headerError } = getLmCredentialsFromHeaders(req);
+    const { credentials: headerCredentials, error: headerError } = getLmCredentialsFromHeaders(req.headers);
     if (headerError) {
       return res.status(400).json({
         error: 'Bad Request',
@@ -120,7 +97,7 @@ export function createAuthMiddleware(authManager: AuthManager) {
       if (!headerCredentials) {
         return res.status(401).json({
           error: 'Unauthorized',
-          message: 'LogicMonitor credentials are required. Provide them via credential mapping or X-LM-Account/X-LM-Bearer-Token headers.',
+          message: 'LogicMonitor credentials are required. Provide them via credential mapping, X-LM-Account/X-LM-Bearer-Token, or X-LM-Portal/X-LM-Session-Listener-Base-Url headers.',
         });
       }
       

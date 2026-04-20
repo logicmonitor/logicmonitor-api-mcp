@@ -5,10 +5,12 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // List datasources operation schema — .strict() rejects unknown parameters
 export const DeviceDataListDatasourcesArgsSchema = z.object({
   operation: z.literal('list_datasources').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   deviceId: z.number().describe('Device ID to list datasources for'),
   filter: z.string().optional().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/device_datasource for valid field names.'),
   datasourceIncludeFilter: z.string().optional().describe('Regex pattern to include only matching datasource names'),
@@ -22,6 +24,7 @@ export const DeviceDataListDatasourcesArgsSchema = z.object({
 // List instances operation schema — .strict() rejects unknown parameters
 export const DeviceDataListInstancesArgsSchema = z.object({
   operation: z.literal('list_instances').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   deviceId: z.number().describe('Device ID that the datasource belongs to'),
   datasourceId: z.number().describe('The "id" field from list_datasources results (not "dataSourceId"). This is the device-datasource assignment ID.'),
   filter: z.string().optional().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/device_datasource_instance for valid field names.'),
@@ -34,6 +37,7 @@ export const DeviceDataListInstancesArgsSchema = z.object({
 // Get data operation schema — .strict() rejects unknown parameters
 export const DeviceDataGetDataArgsSchema = z.object({
   operation: z.literal('get_data').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   deviceId: z.number().describe('Device ID to retrieve monitoring data for'),
   datasourceId: z.number().describe('The "id" field from list_datasources results (not "dataSourceId"). This is the device-datasource assignment ID.'),
   instanceId: z.number().optional().describe('Single instance ID to retrieve data for'),

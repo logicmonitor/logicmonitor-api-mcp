@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError, AxiosHeaders, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import winston from 'winston';
 import { performance } from 'perf_hooks';
 import { 
@@ -25,6 +25,8 @@ import { formatLogicMonitorFilter } from '../utils/filters.js';
 import { rateLimiter } from '../utils/rateLimiter.js';
 import { LogicMonitorApiError } from './errors.js';
 import { getKnownFields } from '../utils/fieldMetadata.js';
+import type { ResolvedLMCredentials, SessionLMCredentials } from '../auth/lmCredentials.js';
+import { fetchPortalSession } from './sessionAuth.js';
 
 export type LogicMonitorHttpMethod = 'get' | 'post' | 'patch' | 'put' | 'delete';
 
@@ -91,10 +93,10 @@ export class LogicMonitorClient {
   private axiosInstance: AxiosInstance;
   private logger: winston.Logger;
   private readonly account: string;
+  private portalUiBaseUrl: string;
 
   constructor(
-    account: string,
-    bearerToken: string,
+    credentials: ResolvedLMCredentials,
     logger?: winston.Logger,
     options: LogicMonitorClientOptions = {}
   ) {
@@ -105,17 +107,34 @@ export class LogicMonitorClient {
     });
 
     const timeout = options.timeoutMs ?? 30000;
-    this.account = account.trim().toLowerCase();
+    this.account = credentials.kind === 'bearer'
+      ? credentials.lm_account.trim().toLowerCase()
+      : credentials.lm_portal.trim().toLowerCase();
+    this.portalUiBaseUrl = `https://${this.account}.logicmonitor.com/santaba/uiv4`;
 
-    this.axiosInstance = axios.create({
-      baseURL: `https://${this.account}.logicmonitor.com/santaba/rest`,
-      headers: {
-        'Authorization': `Bearer ${bearerToken}`,
-        'Content-Type': 'application/json',
-        'X-Version': '3'
-      },
-      timeout
-    });
+    this.axiosInstance = credentials.kind === 'bearer'
+      ? axios.create({
+          baseURL: `https://${this.account}.logicmonitor.com/santaba/rest`,
+          headers: {
+            'Authorization': `Bearer ${credentials.lm_bearer_token}`,
+            'Content-Type': 'application/json',
+            'X-Version': '3'
+          },
+          timeout
+        })
+      : axios.create({
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Version': '3'
+          },
+          timeout
+        });
+
+    if (credentials.kind === 'session') {
+      this.axiosInstance.interceptors.request.use(
+        (requestConfig) => this.attachSessionAuth(credentials, timeout, requestConfig)
+      );
+    }
 
     this.axiosInstance.interceptors.response.use(
       response => {
@@ -129,6 +148,26 @@ export class LogicMonitorClient {
       },
       this.handleError.bind(this)
     );
+  }
+
+  private async attachSessionAuth(
+    credentials: SessionLMCredentials,
+    timeoutMs: number,
+    requestConfig: InternalAxiosRequestConfig
+  ): Promise<InternalAxiosRequestConfig> {
+    const session = await fetchPortalSession(credentials, timeoutMs);
+    const headers = AxiosHeaders.from(requestConfig.headers ?? {});
+
+    headers.delete('Authorization');
+    headers.set('Content-Type', 'application/json');
+    headers.set('X-Version', '3');
+    headers.set('cookie', `JSESSIONID=${session.jSessionId};`);
+    headers.set('x-csrf-token', session.csrfToken);
+
+    requestConfig.baseURL = `${session.portalBaseUrl}/santaba/rest`;
+    this.portalUiBaseUrl = `${session.portalBaseUrl}/santaba/uiv4`;
+    requestConfig.headers = headers;
+    return requestConfig;
   }
 
   private extractRequestId(headers: AxiosHeaders | Record<string, unknown>): string | undefined {
@@ -2269,5 +2308,9 @@ export class LogicMonitorClient {
 
   getAccount(): string {
     return this.account;
+  }
+
+  getPortalUiBaseUrl(): string {
+    return this.portalUiBaseUrl;
   }
 }

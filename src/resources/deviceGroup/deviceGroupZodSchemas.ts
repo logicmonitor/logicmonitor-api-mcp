@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const customPropertySchema = z.object({
@@ -21,6 +22,7 @@ const batchOptionsSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const DeviceGroupListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/device_group for valid field names.').optional(),
   size: z.number().min(1).max(1000).describe('Items per page (default 50, max 1000)').optional(),
   offset: z.number().min(0).describe('Number of items to skip for pagination (default 0)').optional(),
@@ -32,6 +34,7 @@ export const DeviceGroupListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const DeviceGroupGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Device group ID (preferred). Alias: groupId').optional(),
   groupId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   fields: z.string().describe('Comma-separated list of fields to return, e.g. "id,displayName"').optional()
@@ -49,6 +52,7 @@ const singleGroupCreateSchema = z.object({
 // Create operation schema — .loose() allows additional LM API fields not explicitly listed
 export const DeviceGroupCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   name: z.string().describe('Name of the device group. Required for single create.').optional(),
   parentId: z.number().describe('ID of the parent group. Required for single create.').optional(),
   description: z.string().describe('Description of the device group').optional(),
@@ -81,6 +85,7 @@ export const DeviceGroupCreateArgsSchema = z.object({
 // Update operation schema — .loose() allows additional LM API fields not explicitly listed
 export const DeviceGroupUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Device group ID to update (preferred). Alias: groupId').optional(),
   groupId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   name: z.string().describe('New name for the device group').optional(),
@@ -100,6 +105,7 @@ export const DeviceGroupUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const DeviceGroupDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Device group ID to delete (preferred). Alias: groupId').optional(),
   groupId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   deleteChildren: z.boolean().describe('If true, recursively delete all child groups and their resources').optional(),

@@ -231,6 +231,7 @@ export class CollectorGroupHandler extends ResourceHandler<LMCollectorGroup> {
 
     const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
+    delete updates.portal;
     delete updates.id;
     delete updates.groupId;
 

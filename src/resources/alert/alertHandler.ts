@@ -25,9 +25,9 @@ export class AlertHandler extends ResourceHandler<LMAlert> {
         resourceType: 'alert',
         resourceName: 'alert',
         idField: 'id',
-        linkBuilder: (account, resource) => {
+        linkBuilder: (portalUiBaseUrl, resource) => {
           const id = resource.id ?? resource.alertId ?? resource.internalId;
-          return id != null ? getAlertLink({ company: account, alertId: id as number | string }) : undefined;
+          return id != null ? getAlertLink({ portalUiBaseUrl, alertId: id as number | string }) : undefined;
         }
       },
       client,

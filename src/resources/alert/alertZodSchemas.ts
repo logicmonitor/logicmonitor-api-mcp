@@ -4,10 +4,12 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // List operation schema — .strict() rejects unknown parameters
 export const AlertListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression. Examples: "severity:4" (critical), "severity:3" (error), "resourceTemplateName:CPU*". Severity levels: 2=warning, 3=error, 4=critical. See health://logicmonitor/fields/alert for valid field names.'),
   fields: z.string().optional().describe('Comma-separated list of fields to return, e.g. "id,displayName"'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
@@ -21,6 +23,7 @@ export const AlertListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const AlertGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.union([z.string(), z.number()]).optional().describe('Alert ID (preferred). Alias: alertId'),
   alertId: z.union([z.string(), z.number()]).optional().describe('Alias for id. Prefer using id instead.')
 }).strict();
@@ -28,6 +31,7 @@ export const AlertGetArgsSchema = z.object({
 // Ack operation schema — .strict() rejects unknown parameters
 const AlertAckArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.union([z.string(), z.number()]).optional().describe('Alert ID (preferred). Alias: alertId'),
   alertId: z.union([z.string(), z.number()]).optional().describe('Alias for id. Prefer using id instead.'),
   action: z.literal('ack').describe('The update action to perform: acknowledge the alert.'),
@@ -37,6 +41,7 @@ const AlertAckArgsSchema = z.object({
 // Note operation schema — .strict() rejects unknown parameters
 const AlertNoteArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.union([z.string(), z.number()]).optional().describe('Alert ID (preferred). Alias: alertId'),
   alertId: z.union([z.string(), z.number()]).optional().describe('Alias for id. Prefer using id instead.'),
   action: z.literal('note').describe('The update action to perform: add a note to the alert.'),
@@ -46,6 +51,7 @@ const AlertNoteArgsSchema = z.object({
 // Escalate operation schema — .strict() rejects unknown parameters
 const AlertEscalateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.union([z.string(), z.number()]).optional().describe('Alert ID (preferred). Alias: alertId'),
   alertId: z.union([z.string(), z.number()]).optional().describe('Alias for id. Prefer using id instead.'),
   action: z.literal('escalate').describe('The update action to perform: escalate the alert to the next escalation chain stage.')

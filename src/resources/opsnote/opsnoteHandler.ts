@@ -224,6 +224,7 @@ export class OpsnoteHandler extends ResourceHandler<LMOpsNote> {
 
     const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
+    delete updates.portal;
     delete updates.id;
 
     const apiResult = await this.client.updateOpsNote(noteId, updates);

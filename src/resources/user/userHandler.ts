@@ -231,6 +231,7 @@ export class UserHandler extends ResourceHandler<LMUser> {
 
     const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
+    delete updates.portal;
     delete updates.id;
     delete updates.userId;
 

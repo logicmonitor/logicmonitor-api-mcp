@@ -8,6 +8,7 @@ export type OperationType = 'list' | 'get' | 'create' | 'update' | 'delete' | 'l
 
 export interface BaseOperationArgs {
   operation: OperationType;
+  portal?: string;
   [key: string]: unknown;
 }
 
@@ -81,4 +82,3 @@ export interface OperationResult<T = unknown> {
     raw?: unknown;
   }>;
 }
-

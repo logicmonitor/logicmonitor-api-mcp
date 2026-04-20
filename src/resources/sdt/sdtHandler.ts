@@ -224,6 +224,7 @@ export class SdtHandler extends ResourceHandler<LMSDT> {
 
     const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
+    delete updates.portal;
     delete updates.id;
 
     const apiResult = await this.client.updateSdt(sdtId, updates);

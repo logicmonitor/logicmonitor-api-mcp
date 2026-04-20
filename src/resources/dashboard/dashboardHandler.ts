@@ -34,12 +34,12 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
         resourceName: 'dashboard',
         idField: 'id',
         pluralKey: 'dashboards',
-        linkBuilder: (account, resource) => {
+        linkBuilder: (portalUiBaseUrl, resource) => {
           const id = resource.id ?? resource.dashboardId;
           if (id == null) return undefined;
           const groupIds = parseGroupIds(resource.groupId ?? resource.groupIds);
           return getDashboardLink({
-            company: account,
+            portalUiBaseUrl,
             dashboardId: id as number | string,
             groupIds
           });
@@ -236,6 +236,7 @@ export class DashboardHandler extends ResourceHandler<LMDashboard> {
 
     const updates: Record<string, unknown> = { ...validated };
     delete updates.operation;
+    delete updates.portal;
     delete updates.id;
     delete updates.dashboardId;
 

@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const propertySchema = z.object({
@@ -31,6 +32,7 @@ const singleGroupSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const WebsiteGroupListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/website_group for valid field names.').optional(),
   size: z.number().min(1).max(1000).describe('Items per page (default 50, max 1000)').optional(),
   offset: z.number().min(0).describe('Number of items to skip for pagination (default 0)').optional(),
@@ -41,6 +43,7 @@ export const WebsiteGroupListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const WebsiteGroupGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Website group ID (preferred). Alias: groupId').optional(),
   groupId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   fields: z.string().describe('Comma-separated list of fields to return, e.g. "id,displayName"').optional()
@@ -49,6 +52,7 @@ export const WebsiteGroupGetArgsSchema = z.object({
 // Create operation schema — .loose() allows additional LM API fields not explicitly listed
 export const WebsiteGroupCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   name: z.string().describe('Name of the website group. Required for single create.').optional(),
   parentId: z.number().describe('ID of the parent group. Required for single create.').optional(),
   description: z.string().describe('Description of the website group').optional(),
@@ -81,6 +85,7 @@ export const WebsiteGroupCreateArgsSchema = z.object({
 // Update operation schema — .loose() allows additional LM API fields not explicitly listed
 export const WebsiteGroupUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Website group ID to update (preferred). Alias: groupId').optional(),
   groupId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   name: z.string().describe('New name for the website group').optional(),
@@ -101,6 +106,7 @@ export const WebsiteGroupUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const WebsiteGroupDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Website group ID to delete (preferred). Alias: groupId').optional(),
   groupId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   deleteChildren: z.boolean().describe('If true, recursively delete all child groups and their websites').optional(),

@@ -87,6 +87,8 @@ export function loadConfig(): Config {
     logicMonitor: {
       account: process.env.LM_ACCOUNT,
       bearerToken: process.env.LM_BEARER_TOKEN,
+      portal: process.env.LM_PORTAL,
+      sessionListenerBaseUrl: process.env.LM_SESSION_LISTENER_BASE_URL,
       apiTimeoutMs: parseInt(process.env.LM_API_TIMEOUT_MS, CONFIG_DEFAULTS.lmApiTimeoutMs),
     },
 

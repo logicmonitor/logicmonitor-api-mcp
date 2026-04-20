@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const propertySchema = z.object({
@@ -68,6 +69,7 @@ const singleWebsiteSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const WebsiteListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/website for valid field names.').optional(),
   size: z.number().min(1).max(1000).describe('Items per page (default 50, max 1000)').optional(),
   offset: z.number().min(0).describe('Number of items to skip for pagination (default 0)').optional(),
@@ -79,6 +81,7 @@ export const WebsiteListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const WebsiteGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Website ID (preferred). Alias: websiteId').optional(),
   websiteId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   fields: z.string().describe('Comma-separated list of fields to return, e.g. "id,displayName"').optional()
@@ -87,6 +90,7 @@ export const WebsiteGetArgsSchema = z.object({
 // Create operation schema — .loose() allows additional LM API fields not explicitly listed
 export const WebsiteCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   name: z.string().describe('Display name of the website monitor. Required for single create.').optional(),
   domain: z.string().describe('Domain or IP to monitor, e.g. "www.example.com". Required for single create.').optional(),
   type: z.enum(['webcheck', 'pingcheck']).describe('Monitor type: "webcheck" for HTTP checks, "pingcheck" for ICMP ping. Required for single create.').optional(),
@@ -139,6 +143,7 @@ export const WebsiteCreateArgsSchema = z.object({
 // Update operation schema — .loose() allows additional LM API fields not explicitly listed
 export const WebsiteUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Website ID to update (preferred). Alias: websiteId').optional(),
   websiteId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   name: z.string().describe('New display name for the website monitor').optional(),
@@ -162,6 +167,7 @@ export const WebsiteUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const WebsiteDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Website ID to delete (preferred). Alias: websiteId').optional(),
   websiteId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   websites: z.array(z.object({

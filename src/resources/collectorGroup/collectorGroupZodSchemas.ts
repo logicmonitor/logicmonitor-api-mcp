@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const propertySchema = z.object({
@@ -30,6 +31,7 @@ const singleGroupSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const CollectorGroupListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/collector_group for valid field names.'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
   offset: z.number().min(0).optional().describe('Number of items to skip for pagination (default 0)'),
@@ -40,6 +42,7 @@ export const CollectorGroupListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const CollectorGroupGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('Collector group ID (preferred). Alias: groupId'),
   groupId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   fields: z.string().optional().describe('Comma-separated list of fields to return, e.g. "id,displayName"')
@@ -48,6 +51,7 @@ export const CollectorGroupGetArgsSchema = z.object({
 // Create operation schema — .loose() allows additional LM API fields not explicitly listed
 export const CollectorGroupCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   name: z.string().optional().describe('Collector group name (required when groups is not provided)'),
   description: z.string().optional().describe('Collector group description'),
   properties: z.array(propertySchema).optional().describe('Array of custom properties as {name, value} objects'),
@@ -71,6 +75,7 @@ export const CollectorGroupCreateArgsSchema = z.object({
 // Update operation schema — .loose() allows additional LM API fields not explicitly listed
 export const CollectorGroupUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('Collector group ID (preferred). Alias: groupId'),
   groupId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   name: z.string().optional().describe('Updated collector group name'),
@@ -89,6 +94,7 @@ export const CollectorGroupUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const CollectorGroupDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('Collector group ID (preferred). Alias: groupId'),
   groupId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   ids: z.array(z.number()).optional().describe('Array of collector group IDs to delete in batch.'),

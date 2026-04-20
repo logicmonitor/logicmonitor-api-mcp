@@ -3,11 +3,11 @@
  */
 
 import type { Config } from '../config/schema.js';
-
-export interface LMCredentials {
-  lm_account: string;
-  lm_bearer_token: string;
-}
+import {
+  type LMCredentials,
+  resolveCredentialMappingEntry,
+  resolveDefaultLogicMonitorCredentials,
+} from './lmCredentials.js';
 
 export class CredentialMapper {
   private mapping: Map<string, LMCredentials>;
@@ -20,27 +20,17 @@ export class CredentialMapper {
     // Load credential mapping from config
     if (config.auth.credentialMapping) {
       for (const [key, value] of Object.entries(config.auth.credentialMapping)) {
+        const credentials = resolveCredentialMappingEntry(value);
         if (key === '*') {
-          this.wildcardCredentials = {
-            lm_account: value.account,
-            lm_bearer_token: value.token,
-          };
+          this.wildcardCredentials = credentials;
         } else {
-          this.mapping.set(key, {
-            lm_account: value.account,
-            lm_bearer_token: value.token,
-          });
+          this.mapping.set(key, credentials);
         }
       }
     }
 
     // Set default credentials from environment
-    if (config.logicMonitor.account && config.logicMonitor.bearerToken) {
-      this.defaultCredentials = {
-        lm_account: config.logicMonitor.account,
-        lm_bearer_token: config.logicMonitor.bearerToken,
-      };
-    }
+    this.defaultCredentials = resolveDefaultLogicMonitorCredentials(config.logicMonitor);
   }
 
   /**
@@ -76,4 +66,3 @@ export class CredentialMapper {
     return this.defaultCredentials;
   }
 }
-

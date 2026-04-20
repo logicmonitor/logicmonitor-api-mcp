@@ -33,15 +33,23 @@ import type { ResourceType, BaseOperationArgs, OperationResult } from './types/o
 import { buildToolResponse } from './tools/utils/tool-response.js';
 import { registerAllTools } from './tools/registry.js';
 import type { ToolRegistration } from './tools/registry.js';
+import { resolveCredentialsForOperation } from './auth/portalResolution.js';
+import { type LMCredentials, type ResolvedLMCredentials, serializeCredentialsIdentity } from './auth/lmCredentials.js';
+import {
+  buildScopedSessionId,
+  getDefaultPortal,
+  getVisibleVariableKeys,
+  getVisibleVariables,
+  listPortalScopes,
+  registerPortalScope,
+} from './session/portalSessionState.js';
+import { fetchAvailablePortals } from './api/sessionAuth.js';
 
 export interface ServerConfig {
   name?: string;
   version?: string;
   logger?: winston.Logger;
-  credentials?: {
-    lm_account?: string;
-    lm_bearer_token?: string;
-  };
+  credentials?: LMCredentials;
   apiTimeoutMs?: number;
   clientId?: string;
   authMode?: 'none' | 'bearer';
@@ -70,11 +78,13 @@ export async function createServer(config: ServerConfig = {}) {
   const instructions = config.instructions || [
     APP_DESCRIPTION || 'Use the LogicMonitor tools to manage resources, devices, collectors, alerts, users, dashboards, and more.',
     'Follow this order every time:',
-    '1) Authenticate with LM_ACCOUNT / LM_BEARER_TOKEN environment variables (stdio) or X-LM-* headers (HTTP).',
+    '1) Authenticate with either LM_ACCOUNT / LM_BEARER_TOKEN or LM_SESSION_LISTENER_BASE_URL (optionally LM_PORTAL as a default portal) environment variables (stdio), or the equivalent X-LM-* headers (HTTP).',
     '2) Before calling any lm_* tool, try reading health://logicmonitor/fields/<resource> to confirm valid field/filter names. If resource reads are not available in your client, refer to the tool and parameter descriptions for field guidance.',
-    '3) Before repeating a query or running create/update/delete, read health://logicmonitor/session (or call lm_session get historyLimit=5 includeResults=true) to reuse prior results and applyToPrevious handles instead of relisting.',
-    '4) Tool summaries call out new session keys (for example session.lastDeviceListIds). Reuse those keys via applyToPrevious or lm_session instead of issuing duplicate list calls.',
-    '5) Use lm_session create/update/delete to manage custom batches and clean up temporary context when finished.'
+    '3) In listener mode, pass portal="<portal>" on resource tools to target a specific portal, or set lm_session key "defaultPortal" to reduce repetition.',
+    '4) Before repeating a query or running create/update/delete, read health://logicmonitor/session (or call lm_session get historyLimit=5 includeResults=true) to reuse prior results and applyToPrevious handles instead of relisting.',
+    '5) lm_session get shows defaultPortal, availablePortals, and portal-scoped state when listener-based auth is active.',
+    '6) Tool summaries call out new session keys (for example session.lastDeviceListIds). Reuse those keys via applyToPrevious or lm_session instead of issuing duplicate list calls.',
+    '7) Use lm_session create/update/delete to manage custom batches and clean up temporary context when finished.'
   ].join('\n');
 
   const sessionManager = config.sessionManager ?? new SessionManager();
@@ -300,8 +310,9 @@ export async function createServer(config: ServerConfig = {}) {
         historyLimit,
         includeResults
       });
+      const visibleVariables = getVisibleVariables(snapshot.variables as Record<string, unknown>);
 
-      const variableSummaries = Object.entries(snapshot.variables).map(([key, value]) => ({
+      const variableSummaries = Object.entries(visibleVariables).map(([key, value]) => ({
         key,
         summary: Array.isArray(value)
           ? `array(${value.length})`
@@ -320,19 +331,40 @@ export async function createServer(config: ServerConfig = {}) {
           };
         });
 
+      const portalScopes = listPortalScopes(sessionManager, extra.sessionId).map((scope) => {
+        const scopedContext = sessionManager.getContext(scope.sessionId);
+        return {
+          portal: scope.portal,
+          sessionId: scope.sessionId,
+          storedVariables: getVisibleVariableKeys(scopedContext.variables),
+          availableResultKeys: Object.keys(scopedContext.lastResults),
+          historyEntries: scopedContext.history.length,
+        };
+      });
+
+      const availablePortals = config.credentials && config.credentials.kind !== 'bearer'
+        ? await fetchAvailablePortals(config.credentials, config.apiTimeoutMs ?? 30000).catch(() => undefined)
+        : undefined;
+
       return {
         contents: [
           {
             uri: 'health://logicmonitor/session',
             mimeType: 'application/json',
             text: JSON.stringify(
-              {
-                historyLimit,
-                includeResults,
-                snapshot,
-                variableSummaries,
-                applyToPreviousCandidates
-              },
+                {
+                  historyLimit,
+                  includeResults,
+                  snapshot: {
+                    ...snapshot,
+                    variables: visibleVariables,
+                  },
+                  defaultPortal: getDefaultPortal(sessionManager, extra.sessionId),
+                  availablePortals,
+                  portalScopes,
+                  variableSummaries,
+                  applyToPreviousCandidates
+                },
               null,
               2
             ),
@@ -357,25 +389,69 @@ export async function createServer(config: ServerConfig = {}) {
     prompts: {}
   });
 
-  // Lazily create and cache a single LogicMonitorClient for the lifetime of this server instance.
-  // This preserves rate-limit tracking across calls and enables HTTP connection reuse.
-  let cachedClient: LogicMonitorClient | undefined;
+  // Lazily create and cache LogicMonitor clients by resolved credential identity.
+  // This preserves rate-limit tracking across calls while keeping portal-specific
+  // session clients isolated from one another.
+  const clientCache = new Map<string, LogicMonitorClient>();
 
-  function getClient(): LogicMonitorClient {
-    if (cachedClient) return cachedClient;
-
-    const credentials = config.credentials || {};
-    const { lm_account, lm_bearer_token } = credentials;
-    if (!lm_account || !lm_bearer_token) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        'LogicMonitor credentials not provided. Please configure lm_account and lm_bearer_token.'
-      );
+  function getClient(credentials: ResolvedLMCredentials): LogicMonitorClient {
+    const identity = serializeCredentialsIdentity(credentials);
+    const cachedClient = clientCache.get(identity);
+    if (cachedClient) {
+      return cachedClient;
     }
-    cachedClient = new LogicMonitorClient(lm_account, lm_bearer_token, logger, {
+
+    const client = new LogicMonitorClient(credentials, logger, {
       timeoutMs: config.apiTimeoutMs
     });
-    return cachedClient;
+    clientCache.set(identity, client);
+    return client;
+  }
+
+  async function resolveToolContext(
+    resourceType: ResourceType,
+    args: BaseOperationArgs,
+    sessionId?: string
+  ): Promise<{
+    client?: LogicMonitorClient;
+    handlerSessionId?: string;
+  }> {
+    if (resourceType === 'session') {
+      return { handlerSessionId: sessionId };
+    }
+
+    const credentials = config.credentials;
+    if (!credentials) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'LogicMonitor credentials not provided. Configure LM_ACCOUNT/LM_BEARER_TOKEN or LM_SESSION_LISTENER_BASE_URL.'
+      );
+    }
+
+    const resolved = await resolveCredentialsForOperation(credentials, {
+      portal: args.portal,
+      sessionDefaultPortal: getDefaultPortal(sessionManager, sessionId),
+      timeoutMs: config.apiTimeoutMs ?? 30000,
+    });
+
+    let handlerSessionId = sessionId;
+
+    if (resolved.credentials.kind === 'session') {
+      const identity = serializeCredentialsIdentity(resolved.credentials);
+      handlerSessionId = buildScopedSessionId(sessionId, identity);
+      registerPortalScope(
+        sessionManager,
+        sessionId,
+        resolved.credentials.lm_portal,
+        handlerSessionId,
+        identity
+      );
+    }
+
+    return {
+      client: getClient(resolved.credentials),
+      handlerSessionId,
+    };
   }
 
   // Single source of truth for all tool ↔ resource type mappings
@@ -521,8 +597,17 @@ export async function createServer(config: ServerConfig = {}) {
         );
       }
 
-      const client = resourceType !== 'session' ? getClient() : undefined;
-      const handler = createResourceHandler(resourceType, client, sessionManager, sessionId);
+      const toolContext = await resolveToolContext(
+        resourceType,
+        args as BaseOperationArgs,
+        sessionId
+      );
+      const handler = createResourceHandler(
+        resourceType,
+        toolContext.client,
+        sessionManager,
+        toolContext.handlerSessionId
+      );
 
       // Wire MCP ProgressNotifications when the client supplies a progressToken
       if (progressToken !== undefined) {
@@ -537,9 +622,9 @@ export async function createServer(config: ServerConfig = {}) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await handler.handleOperation(args as any);
 
-      sessionManager.recordResult(sessionId, name, args, result);
+      sessionManager.recordResult(toolContext.handlerSessionId, name, args, result);
       metricsManager.recordSuccess(name, summarizeResultForMetrics(result));
-      logger.info('Tool call successful', { tool: name, sessionId });
+      logger.info('Tool call successful', { tool: name, sessionId: toolContext.handlerSessionId });
 
       const registryEntry = TOOL_REGISTRY[name];
       const responseConfig = {
@@ -631,7 +716,10 @@ export async function createServer(config: ServerConfig = {}) {
     sessionId?: string
   ) {
     if (resourceType === 'session') {
-      return new SessionHandler(sessionMgr, sessionId);
+      return new SessionHandler(sessionMgr, sessionId, {
+        credentials: config.credentials,
+        apiTimeoutMs: config.apiTimeoutMs,
+      });
     }
 
     if (!client) {

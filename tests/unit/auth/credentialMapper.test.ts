@@ -42,7 +42,11 @@ describe('CredentialMapper', () => {
     );
 
     const creds = mapper.getCredentials('client-1');
-    expect(creds).toEqual({ lm_account: 'acme', lm_bearer_token: 'tok-1' });
+    expect(creds).toEqual({
+      kind: 'bearer',
+      lm_account: 'acme',
+      lm_bearer_token: 'tok-1'
+    });
   });
 
   // ── wildcard fallback ────────────────────────────────────────────
@@ -61,6 +65,7 @@ describe('CredentialMapper', () => {
 
     const creds = mapper.getCredentials('unknown-client');
     expect(creds).toEqual({
+      kind: 'bearer',
       lm_account: 'wildcard-acct',
       lm_bearer_token: 'wildcard-tok',
     });
@@ -101,6 +106,7 @@ describe('CredentialMapper', () => {
 
     const creds = mapper.getCredentials('client-1');
     expect(creds).toEqual({
+      kind: 'bearer',
       lm_account: 'exact-acct',
       lm_bearer_token: 'exact-tok',
     });
@@ -129,8 +135,71 @@ describe('CredentialMapper', () => {
 
     const creds = mapper.getCredentials('unknown-client');
     expect(creds).toEqual({
+      kind: 'bearer',
       lm_account: 'default-acct',
       lm_bearer_token: 'default-tok',
+    });
+  });
+
+  it('supports session-based default credentials from logicMonitor config', () => {
+    const mapper = new CredentialMapper(
+      makeConfig({
+        logicMonitor: {
+          portal: 'prod',
+          sessionListenerBaseUrl: 'http://127.0.0.1:8072',
+          apiTimeoutMs: 10000,
+        },
+      }),
+    );
+
+    expect(mapper.getDefaultCredentials()).toEqual({
+      kind: 'listener',
+      lm_default_portal: 'prod',
+      lm_session_listener_base_url: 'http://127.0.0.1:8072',
+    });
+  });
+
+  it('supports session-based credential mappings', () => {
+    const mapper = new CredentialMapper(
+      makeConfig({
+        auth: {
+          mode: 'bearer' as const,
+          credentialMapping: {
+            'client-1': { portal: 'prod', listenerBaseUrl: 'http://127.0.0.1:8072' },
+          },
+        },
+      }),
+    );
+
+    expect(mapper.getCredentials('client-1')).toEqual({
+      kind: 'listener',
+      lm_default_portal: 'prod',
+      lm_session_listener_base_url: 'http://127.0.0.1:8072',
+    });
+  });
+
+  it('keeps listener defaults distinct across mapped clients', () => {
+    const mapper = new CredentialMapper(
+      makeConfig({
+        auth: {
+          mode: 'bearer' as const,
+          credentialMapping: {
+            'client-1': { portal: 'prod', listenerBaseUrl: 'http://127.0.0.1:8072' },
+            'client-2': { portal: 'gov', listenerBaseUrl: 'http://127.0.0.1:8072' },
+          },
+        },
+      }),
+    );
+
+    expect(mapper.getCredentials('client-1')).toEqual({
+      kind: 'listener',
+      lm_default_portal: 'prod',
+      lm_session_listener_base_url: 'http://127.0.0.1:8072',
+    });
+    expect(mapper.getCredentials('client-2')).toEqual({
+      kind: 'listener',
+      lm_default_portal: 'gov',
+      lm_session_listener_base_url: 'http://127.0.0.1:8072',
     });
   });
 
@@ -155,6 +224,7 @@ describe('CredentialMapper', () => {
 
     const creds = mapper.getCredentials('unknown-client');
     expect(creds).toEqual({
+      kind: 'bearer',
       lm_account: 'wildcard-acct',
       lm_bearer_token: 'wildcard-tok',
     });
@@ -196,6 +266,7 @@ describe('CredentialMapper', () => {
     );
 
     expect(mapper.getDefaultCredentials()).toEqual({
+      kind: 'bearer',
       lm_account: 'default-acct',
       lm_bearer_token: 'default-tok',
     });

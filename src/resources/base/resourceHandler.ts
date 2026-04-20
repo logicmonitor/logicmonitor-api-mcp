@@ -29,7 +29,7 @@ export interface ResourceHandlerConfig {
   /** Plural key for batch array inputs (e.g., 'devices', 'groups', 'users') */
   pluralKey?: string;
   /** Optional link builder for attaching portal URLs to results */
-  linkBuilder?: (account: string, resource: Record<string, unknown>) => string | undefined;
+  linkBuilder?: (portalUiBaseUrl: string, resource: Record<string, unknown>) => string | undefined;
 }
 
 export abstract class ResourceHandler<T = unknown> {
@@ -164,10 +164,10 @@ export abstract class ResourceHandler<T = unknown> {
 
   protected enhanceResult(_operation: OperationType, result: OperationResult<T>): void {
     if (!this.config.linkBuilder || !this._client) return;
-    const account = this._client.getAccount();
+    const portalUiBaseUrl = this._client.getPortalUiBaseUrl();
     const attach = (item: Record<string, unknown>) => {
       try {
-        const url = this.config.linkBuilder?.(account, item);
+        const url = this.config.linkBuilder?.(portalUiBaseUrl, item);
         if (url) item.linkUrl = url;
       } catch {
         // Link generation is non-critical
@@ -283,6 +283,7 @@ export abstract class ResourceHandler<T = unknown> {
     const single = { ...args };
     delete single.operation;
     delete single.batchOptions;
+    delete single.portal;
     return [single];
   }
 
@@ -332,4 +333,3 @@ export abstract class ResourceHandler<T = unknown> {
   }
 
 }
-

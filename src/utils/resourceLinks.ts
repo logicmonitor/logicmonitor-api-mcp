@@ -3,31 +3,31 @@
  */
 
 export interface DashboardLinkArgs {
-  company: string;
+  portalUiBaseUrl: string;
   dashboardId: number | string;
   groupIds?: Array<number | string | null | undefined>;
 }
 
 export interface DeviceLinkArgs {
-  company: string;
+  portalUiBaseUrl: string;
   deviceId: number | string;
 }
 
 export interface WebsiteLinkArgs {
-  company: string;
+  portalUiBaseUrl: string;
   websiteId: number | string;
 }
 
 export interface AlertLinkArgs {
-  company: string;
+  portalUiBaseUrl: string;
   alertId: number | string;
 }
 
-function normalizeCompany(company: string | undefined): string {
-  if (!company || !company.trim()) {
-    throw new Error('LogicMonitor company subdomain is required to build URLs.');
+function normalizePortalUiBaseUrl(portalUiBaseUrl: string | undefined): string {
+  if (!portalUiBaseUrl || !portalUiBaseUrl.trim()) {
+    throw new Error('LogicMonitor portal UI base URL is required to build URLs.');
   }
-  return company.trim().toLowerCase();
+  return portalUiBaseUrl.trim().replace(/\/+$/, '');
 }
 
 function ensureId(id: number | string | undefined, label: string): string {
@@ -37,30 +37,26 @@ function ensureId(id: number | string | undefined, label: string): string {
   return `${id}`.trim();
 }
 
-function baseUrl(company: string): string {
-  return `https://${normalizeCompany(company)}.logicmonitor.com/santaba/uiv4`;
-}
-
 export function getDashboardLink(args: DashboardLinkArgs): string {
   const dashboardId = ensureId(args.dashboardId, 'dashboardId');
   const groupSegments = (args.groupIds ?? [])
     .filter((v): v is number | string => v != null)
     .map(v => `dashboardGroups-${v}`);
   const segments = [...groupSegments, `dashboards-${dashboardId}`];
-  return `${baseUrl(args.company)}/dashboards/${segments.join(',')}`;
+  return `${normalizePortalUiBaseUrl(args.portalUiBaseUrl)}/dashboards/${segments.join(',')}`;
 }
 
 export function getDeviceLink(args: DeviceLinkArgs): string {
   const deviceId = ensureId(args.deviceId, 'deviceId');
-  return `${baseUrl(args.company)}/resources/treeNodes/t-d,id-${encodeURIComponent(deviceId)}?source=details&tab=info`;
+  return `${normalizePortalUiBaseUrl(args.portalUiBaseUrl)}/resources/treeNodes/t-d,id-${encodeURIComponent(deviceId)}?source=details&tab=info`;
 }
 
 export function getWebsiteLink(args: WebsiteLinkArgs): string {
   const websiteId = ensureId(args.websiteId, 'websiteId');
-  return `${baseUrl(args.company)}/websites/treeNodes/t-s,id-${encodeURIComponent(websiteId)}?source=details&tab=info`;
+  return `${normalizePortalUiBaseUrl(args.portalUiBaseUrl)}/websites/treeNodes/t-s,id-${encodeURIComponent(websiteId)}?source=details&tab=info`;
 }
 
 export function getAlertLink(args: AlertLinkArgs): string {
   const alertId = ensureId(args.alertId, 'alertId');
-  return `${baseUrl(args.company)}/alerts/${alertId}`;
+  return `${normalizePortalUiBaseUrl(args.portalUiBaseUrl)}/alerts/${alertId}`;
 }

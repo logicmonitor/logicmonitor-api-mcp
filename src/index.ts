@@ -14,6 +14,11 @@ import { SessionManager } from './session/sessionManager.js';
 import { getConfig } from './config/index.js';
 import { AuthManager } from './auth/index.js';
 import { createAuthMiddleware } from './auth/middleware.js';
+import {
+  type LMCredentials,
+  resolveDefaultLogicMonitorCredentials,
+  serializeCredentialsIdentity,
+} from './auth/lmCredentials.js';
 import { createRequestIdMiddleware } from './middleware/requestId.js';
 import { createRateLimitMiddleware } from './middleware/rateLimit.js';
 import { AuditLogger } from './audit/logger.js';
@@ -120,8 +125,8 @@ async function startHttpServer() {
     }
   }, SESSION_CLEANUP_INTERVAL_MS);
   sessionCleanupTimer.unref(); // Don't prevent process exit
-  const buildCredentialsKey = (creds: { lm_account: string; lm_bearer_token: string }) =>
-    createHash('sha256').update(`${creds.lm_account}:${creds.lm_bearer_token}`).digest('hex');
+  const buildCredentialsKey = (creds: LMCredentials) =>
+    createHash('sha256').update(serializeCredentialsIdentity(creds)).digest('hex');
 
   // Handle all MCP requests at /mcp endpoint
   app.all('/mcp', async (req, res): Promise<void> => {
@@ -380,19 +385,28 @@ async function startStdioServer() {
     ]
   });
   
-  if (!config.logicMonitor.account || !config.logicMonitor.bearerToken) {
-    stdioLogger.error('STDIO mode requires LM_ACCOUNT and LM_BEARER_TOKEN environment variables');
+  const defaultCredentials = resolveDefaultLogicMonitorCredentials(config.logicMonitor);
+
+  if (!defaultCredentials) {
+    stdioLogger.error(
+      'STDIO mode requires LM_ACCOUNT/LM_BEARER_TOKEN or LM_SESSION_LISTENER_BASE_URL (optionally with LM_PORTAL)'
+    );
     throw new Error('Missing required LogicMonitor credentials for STDIO mode');
   }
-  
-  stdioLogger.info(`Starting STDIO mode with account: ${config.logicMonitor.account}`);
+
+  const credentialSummary = defaultCredentials.kind === 'bearer'
+    ? `account: ${defaultCredentials.lm_account}`
+    : defaultCredentials.kind === 'session'
+      ? `portal: ${defaultCredentials.lm_portal}`
+      : defaultCredentials.lm_default_portal
+        ? `listener: ${defaultCredentials.lm_session_listener_base_url} (default portal: ${defaultCredentials.lm_default_portal})`
+        : `listener: ${defaultCredentials.lm_session_listener_base_url}`;
+
+  stdioLogger.info(`Starting STDIO mode with ${credentialSummary}`);
   
   const { server } = await createServer({ 
     logger: stdioLogger,
-    credentials: {
-      lm_account: config.logicMonitor.account,
-      lm_bearer_token: config.logicMonitor.bearerToken
-    },
+    credentials: defaultCredentials,
     clientId: 'stdio-client',
     authMode: 'none',
     apiTimeoutMs: config.logicMonitor.apiTimeoutMs,

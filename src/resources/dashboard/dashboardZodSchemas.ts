@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const widgetTokenSchema = z.object({
@@ -32,6 +33,7 @@ const singleDashboardSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const DashboardListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression, e.g. "displayName:*prod*". See health://logicmonitor/fields/dashboard for valid field names.'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
   offset: z.number().min(0).optional().describe('Number of items to skip for pagination (default 0)'),
@@ -42,6 +44,7 @@ export const DashboardListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const DashboardGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('Dashboard ID (preferred). Alias: dashboardId'),
   dashboardId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   fields: z.string().optional().describe('Comma-separated list of fields to return, e.g. "id,displayName"')
@@ -50,6 +53,7 @@ export const DashboardGetArgsSchema = z.object({
 // Create operation schema — .loose() allows additional LM API fields not explicitly listed
 export const DashboardCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   name: z.string().optional().describe('Display name of the dashboard (required for single create)'),
   groupId: z.number().optional().describe('ID of the dashboard group (required for single create)'),
   description: z.string().optional().describe('Description of the dashboard'),
@@ -83,6 +87,7 @@ export const DashboardCreateArgsSchema = z.object({
 // Update operation schema — .loose() allows additional LM API fields not explicitly listed
 export const DashboardUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('Dashboard ID (preferred). Alias: dashboardId'),
   dashboardId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   name: z.string().optional().describe('Display name of the dashboard'),
@@ -101,6 +106,7 @@ export const DashboardUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const DashboardDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().optional().describe('Dashboard ID (preferred). Alias: dashboardId'),
   dashboardId: z.number().optional().describe('Alias for id. Prefer using id instead.'),
   ids: z.array(z.number()).optional().describe('Array of dashboard IDs to delete in batch'),

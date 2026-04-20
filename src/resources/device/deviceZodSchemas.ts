@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 // Common schemas
 const propertySchema = z.object({
@@ -48,6 +49,7 @@ const singleUpdateDeviceSchema = z.object({
 // List operation schema — .strict() rejects unknown parameters
 export const DeviceListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().describe('LM filter expression. Common fields: displayName, hostStatus, currentCollectorId, hostGroupIds. Examples: "displayName:*prod*", "hostStatus:dead". See health://logicmonitor/fields/device for all valid field names.').optional(),
   size: z.number().min(1).max(1000).describe('Items per page (default 50, max 1000)').optional(),
   offset: z.number().min(0).describe('Number of items to skip for pagination (default 0)').optional(),
@@ -62,6 +64,7 @@ export const DeviceListArgsSchema = z.object({
 // Get operation schema — .strict() rejects unknown parameters
 export const DeviceGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Device ID (preferred). Alias: deviceId').optional(),
   deviceId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   fields: z.string().describe('Comma-separated list of fields to return, e.g. "id,displayName,hostStatus"').optional(),
@@ -74,6 +77,7 @@ export const DeviceGetArgsSchema = z.object({
 // Create operation schema — .loose() allows additional LM API fields not explicitly listed
 export const DeviceCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   displayName: z.string().describe('Display name for a single device. Mutually exclusive with devices array.').optional(),
   name: z.string().describe('Hostname, IP address, or DNS name. Required when using displayName (single create).').optional(),
   hostGroupIds: z.array(z.number()).min(1).describe('Device group IDs to assign. Required when using displayName (single create).').optional(),
@@ -141,6 +145,7 @@ export const DeviceCreateArgsSchema = z.object({
 // Update operation schema — .loose() allows additional LM API fields not explicitly listed
 export const DeviceUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Device ID to update (preferred). Alias: deviceId').optional(),
   deviceId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   displayName: z.string().describe('New display name for the device').optional(),
@@ -158,6 +163,7 @@ export const DeviceUpdateArgsSchema = z.object({
 // Delete operation schema — .strict() rejects unknown parameters
 export const DeviceDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.number().describe('Device ID to delete (preferred). Alias: deviceId').optional(),
   deviceId: z.number().describe('Alias for id. Prefer using id instead.').optional(),
   ids: z.array(z.number()).describe('Array of device IDs to delete in batch').optional(),
@@ -242,4 +248,3 @@ export function validateDeleteDevice(args: unknown) {
   }
   return result.data;
 }
-

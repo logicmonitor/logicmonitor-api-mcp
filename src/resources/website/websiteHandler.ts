@@ -34,9 +34,9 @@ export class WebsiteHandler extends ResourceHandler<LMWebsite> {
         resourceName: 'website',
         idField: 'id',
         pluralKey: 'websites',
-        linkBuilder: (account, resource) => {
+        linkBuilder: (portalUiBaseUrl, resource) => {
           const id = resource.id ?? resource.websiteId;
-          return id != null ? getWebsiteLink({ company: account, websiteId: id as number | string }) : undefined;
+          return id != null ? getWebsiteLink({ portalUiBaseUrl, websiteId: id as number | string }) : undefined;
         }
       },
       client,

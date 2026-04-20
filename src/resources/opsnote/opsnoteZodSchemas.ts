@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { portalOverrideSchema } from '../base/portalArgSchema.js';
 
 const batchOptionsSchema = z.object({
   maxConcurrent: z.number().min(1).max(50).optional().describe('Max parallel API requests (default 5)'),
@@ -31,6 +32,7 @@ const singleOpsnoteSchema = z.object({
 // List operation schema
 export const OpsnoteListArgsSchema = z.object({
   operation: z.literal('list').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   filter: z.string().optional().describe('LM filter expression. Filterable fields: tags, createdBy, happenedOn, monitorObjectGroups, monitorObjectNames, or _all. See health://logicmonitor/fields/opsnote for valid field names.'),
   size: z.number().min(1).max(1000).optional().describe('Items per page (default 50, max 1000)'),
   offset: z.number().min(0).optional().describe('Number of items to skip for pagination (default 0)'),
@@ -41,6 +43,7 @@ export const OpsnoteListArgsSchema = z.object({
 // Get operation schema
 export const OpsnoteGetArgsSchema = z.object({
   operation: z.literal('get').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.string().optional().describe('OpsNote ID'),
   fields: z.string().optional().describe('Comma-separated list of fields to return')
 }).strict();
@@ -48,6 +51,7 @@ export const OpsnoteGetArgsSchema = z.object({
 // Create operation schema
 export const OpsnoteCreateArgsSchema = z.object({
   operation: z.literal('create').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   note: z.string().optional().describe('The note message (required when opsnotes is not provided)'),
   scopes: z.array(scopeSchema).optional().describe('Scopes to associate the note with specific resources. Scope types: device, service, deviceGroup, serviceGroup. Omit for account-wide notes.'),
   tags: z.array(tagSchema).optional().describe('Tags for categorization, e.g. [{name: "deployment"}, {name: "maintenance"}]'),
@@ -68,6 +72,7 @@ export const OpsnoteCreateArgsSchema = z.object({
 // Update operation schema
 export const OpsnoteUpdateArgsSchema = z.object({
   operation: z.literal('update').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.string().optional().describe('OpsNote ID'),
   note: z.string().optional().describe('Updated note message'),
   scopes: z.array(scopeSchema).optional().describe('Updated scopes'),
@@ -83,6 +88,7 @@ export const OpsnoteUpdateArgsSchema = z.object({
 // Delete operation schema
 export const OpsnoteDeleteArgsSchema = z.object({
   operation: z.literal('delete').describe('The operation to perform'),
+  portal: portalOverrideSchema,
   id: z.string().optional().describe('OpsNote ID'),
   ids: z.array(z.string()).optional().describe('Array of OpsNote IDs to delete in batch.'),
   opsnotes: z.array(z.object({ id: z.string().optional().describe('OpsNote ID') }).passthrough()).min(1).optional().describe('Array of opsnote references for batch deletion. Each must include id.'),

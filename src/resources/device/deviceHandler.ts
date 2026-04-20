@@ -40,9 +40,9 @@ export class DeviceHandler extends ResourceHandler<LMDevice> {
         resourceName: 'device',
         idField: 'id',
         pluralKey: 'devices',
-        linkBuilder: (account, resource) => {
+        linkBuilder: (portalUiBaseUrl, resource) => {
           const id = resource.id ?? resource.deviceId;
-          return id != null ? getDeviceLink({ company: account, deviceId: id as number | string }) : undefined;
+          return id != null ? getDeviceLink({ portalUiBaseUrl, deviceId: id as number | string }) : undefined;
         }
       },
       client,
