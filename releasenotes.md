@@ -1,3 +1,23 @@
+# LogicMonitor MCP Server v2.1.2
+
+## Dependency and security updates
+
+Patch release that bumps axios and related dependencies to versions that resolve reported security issues. No MCP tools or runtime behavior changes.
+
+### Dependencies
+
+- **axios** – Upgraded axios and related packages to versions that address reported security vulnerabilities.
+
+### Upgrading from v2.1.1
+
+Drop-in replacement. No configuration or API changes.
+
+---
+
+**Full Changelog**: See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+
+---
+
 # LogicMonitor MCP Server v2.1.1
 
 ## Stdio Transport Fix

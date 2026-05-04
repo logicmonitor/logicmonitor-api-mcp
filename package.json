@@ -1,6 +1,6 @@
 {
   "name": "logicmonitor-api-mcp",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "description": "MCP server for LogicMonitor API integration",
   "main": "dist/index.js",
   "type": "module",
@@ -50,25 +50,25 @@
   ],
   "dependencies": {
     "@eslint/js": "^10.0.1",
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "axios": "^1.13.6",
-    "dotenv": "^17.3.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.16.0",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.3.1",
+    "express-rate-limit": "^8.4.1",
     "winston": "^3.19.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.5.0",
-    "@typescript-eslint/eslint-plugin": "^8.57.1",
-    "@typescript-eslint/parser": "^8.57.1",
-    "eslint": "^10.1.0",
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
+    "eslint": "^10.3.0",
     "jest": "^30.3.0",
-    "openai": "^6.32.0",
-    "orval": "^8.5.3",
-    "ts-jest": "^29.4.6",
+    "openai": "^6.35.0",
+    "orval": "^8.9.1",
+    "ts-jest": "^29.4.9",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

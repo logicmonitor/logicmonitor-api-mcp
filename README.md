@@ -33,29 +33,7 @@ A Model Context Protocol (MCP) server that provides secure access to the LogicMo
   - `meta` – request/response metadata (status, timing, rate-limit info)
   - `request` – the effective parameters sent to LogicMonitor (validated field list, offsets, filters, etc.)
 
-## Installation
-
-### Option 1: Install from npm (Recommended)
-
-```bash
-npm install -g logicmonitor-api-mcp
-```
-
-### Option 2: Install from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/LogicMonitor/logicmonitor-api-mcp.git
-cd logicmonitor-api-mcp
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-```
-
-## Configuration
+## Quick Start
 
 ### Prerequisites
 
@@ -65,14 +43,14 @@ You'll need:
 
 ### STDIO Mode (Recommended for Local Use)
 
-STDIO mode is best for local AI assistants like Claude Desktop. Add to your MCP settings:
+STDIO mode is best for local AI assistants like Claude Desktop, Cursor, or any MCP-compatible client. No install required — just add this to your MCP settings:
 
 ```json
 {
   "mcpServers": {
     "logicmonitor": {
-      "command": "logicmonitor-api-mcp",
-      "args": ["--stdio"],
+      "command": "npx",
+      "args": ["-y", "logicmonitor-api-mcp", "--stdio"],
       "env": {
         "LM_ACCOUNT": "your-account-name",
         "LM_BEARER_TOKEN": "your-bearer-token"
@@ -82,46 +60,24 @@ STDIO mode is best for local AI assistants like Claude Desktop. Add to your MCP 
 }
 ```
 
-If installed from source, use the full path:
+### HTTP Mode (For Remote/Shared Access)
 
-```json
-{
-  "mcpServers": {
-    "logicmonitor": {
-      "command": "node",
-      "args": ["/path/to/logicmonitor-api-mcp/dist/index.js", "--stdio"],
-      "env": {
-        "LM_ACCOUNT": "your-account-name",
-        "LM_BEARER_TOKEN": "your-bearer-token"
-      }
-    }
-  }
-}
-```
-
-### HTTP Mode (For Remote Access)
-
-HTTP mode allows remote access and is suitable for shared deployments:
+HTTP mode allows multiple clients or teams to connect to a single server.
 
 1. **Start the server:**
-```bash
-# With environment variables (default port is 3000)
-LM_ACCOUNT=your-account LM_BEARER_TOKEN=your-bearer-token logicmonitor-api-mcp
 
-# Or use a .env file
-cp .env.example .env
-# Edit .env with your credentials
-logicmonitor-api-mcp
+```bash
+LM_ACCOUNT=your-account LM_BEARER_TOKEN=your-bearer-token npx logicmonitor-api-mcp
 ```
 
 2. **Configure your MCP client:**
 
-Option A - Pass credentials via headers (more secure):
+Option A — Pass credentials via headers (recommended for multi-tenant):
 ```json
 {
   "mcpServers": {
     "logicmonitor": {
-      "url": "http://localhost:3000/mcp",
+      "url": "http://your-server:3000/mcp",
       "transport": "http",
       "headers": {
         "X-LM-Account": "your-account-name",
@@ -132,25 +88,36 @@ Option A - Pass credentials via headers (more secure):
 }
 ```
 
-Option B - Server-side credentials (for trusted environments):
-```bash
-# Start server with credentials
-LM_ACCOUNT=your-account LM_BEARER_TOKEN=your-token logicmonitor-api-mcp
-```
-
-Then connect without credentials in headers:
+Option B — Server-side credentials (for trusted environments):
 ```json
 {
   "mcpServers": {
     "logicmonitor": {
-      "url": "http://localhost:3000/mcp",
+      "url": "http://your-server:3000/mcp",
       "transport": "http"
     }
   }
 }
 ```
 
-When no `X-LM-*` headers are provided, the server falls back to `LM_ACCOUNT` and `LM_BEARER_TOKEN` environment variables that were set when the process started.
+When no `X-LM-*` headers are provided, the server falls back to the `LM_ACCOUNT` and `LM_BEARER_TOKEN` environment variables set when the server was started.
+
+### Alternative Installation
+
+If you prefer a global install or need to run from source:
+
+```bash
+# Global install
+npm install -g logicmonitor-api-mcp
+
+# Or from source
+git clone https://github.com/LogicMonitor/logicmonitor-api-mcp.git
+cd logicmonitor-api-mcp
+npm install
+npm run build
+```
+
+When using a global install, replace `"command": "npx"` and `"args": ["-y", "logicmonitor-api-mcp", "--stdio"]` with `"command": "logicmonitor-api-mcp"` and `"args": ["--stdio"]` in your MCP config.
 
 ### Authentication
 
@@ -492,7 +459,7 @@ npm run build
 
 Enable debug logging:
 ```bash
-LOG_LEVEL=debug logicmonitor-api-mcp
+LOG_LEVEL=debug npx logicmonitor-api-mcp
 ```
 
 ## Architecture

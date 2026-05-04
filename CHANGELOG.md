@@ -1,3 +1,10 @@
+## 2.1.2
+
+### Dependencies
+- **axios** – Upgraded axios and related packages to versions that address reported security vulnerabilities.
+
+---
+
 ## 2.1.1
 
 ### Bug Fix
